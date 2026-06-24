@@ -91,7 +91,7 @@ def _build_inner_html(node: dict[str, Any]) -> Optional[str]:
     Retorna None se o texto for simples (sem overrides nem listas) — nesse caso
     o gerador usa _esc(layer.text) diretamente.
     """
-    characters = re.sub(r"\{corretor_nome\}", "nome do corretor", node.get("characters", "") or "", flags=re.IGNORECASE)
+    characters = re.sub(r"\{corretor_nome\}", "Nome do Corretor", node.get("characters", "") or "", flags=re.IGNORECASE)
     line_types = node.get("lineTypes", []) or []
     overrides = node.get("characterStyleOverrides", []) or []
     style_table = node.get("styleOverrideTable", {}) or {}
@@ -232,7 +232,7 @@ def normalize(
 
             if is_text_node:
                 raw_chars = child.get("characters", "")
-                layer.text = re.sub(r"\{corretor_nome\}", "nome do corretor", raw_chars, flags=re.IGNORECASE)
+                layer.text = re.sub(r"\{corretor_nome\}", "Nome do Corretor", raw_chars, flags=re.IGNORECASE)
                 layer.text_html = _build_inner_html(child)
                 layer.style = _text_style(child)
             else:
