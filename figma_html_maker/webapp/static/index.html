@@ -925,6 +925,8 @@ function makeCreativeCard(creative) {
     ? `<span class="draft-badge">Rascunho</span>`
     : (creative.type === "html" ? `<span class="published-badge">Publicado</span>` : "");
 
+  const copies = state.currentCampaign?.copies || [];
+  const linkedCopy = creative.copy_id ? copies.find(cp => cp.id === creative.copy_id) : null;
   const typeLabel = creative.type === "html"
     ? `HTML · ${esc(creative.format_label)}`
     : creative.type;
@@ -936,7 +938,7 @@ function makeCreativeCard(creative) {
     </div>
     <div class="item-label">
       <div class="item-name">${esc(creative.name)}</div>
-      <div class="item-meta">${typeLabel}</div>
+      <div class="item-meta">${typeLabel}${linkedCopy ? ` · <span style="color:var(--accent-deep)">${esc(linkedCopy.name)}</span>` : ""}</div>
     </div>
     <button class="item-menu">⋯</button>
   </div>`);
@@ -953,6 +955,7 @@ function makeCreativeCard(creative) {
     menuItems.push({ label: "Baixar HTML", action: () => downloadCreativeHtml(creative) });
   }
   menuItems.push({ label: "Adicionar a carrossel", action: () => addToCarouselPrompt(creative) });
+  menuItems.push({ label: "Associar copy", action: () => showAssociateCopyModal(creative) });
   menuItems.push({ label: "Excluir", danger: true, action: () => deleteCreative(creative) });
 
   card.querySelector(".item-menu").addEventListener("click", e => {
@@ -1971,6 +1974,52 @@ async function submitEditCopy(copyId) {
     if (cdata.status === "ok") {
       state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
       renderCopiesRow(cdata.copies || []);
+    }
+  }
+}
+
+function showAssociateCopyModal(creative) {
+  const copies = state.currentCampaign?.copies || [];
+  if (!copies.length) {
+    alert("Crie uma copy primeiro usando o botão \"+ Copy\".");
+    return;
+  }
+  const opts = `<option value="">— remover associação —</option>` +
+    copies.map(cp => `<option value="${cp.id}"${creative.copy_id === cp.id ? " selected" : ""}>${esc(cp.name)}</option>`).join("");
+  const currentCopy = copies.find(cp => cp.id === creative.copy_id);
+
+  openModal(`
+    <div class="modal-header">
+      <h2>Associar copy</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">
+        Criativo: <b>${esc(creative.name)}</b>${currentCopy ? ` · Copy atual: <b>${esc(currentCopy.name)}</b>` : ""}
+      </p>
+      <div class="form-field">
+        <label>Copy</label>
+        <select class="form-input" id="assoc-copy-select">${opts}</select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="submitAssociateCopy(${creative.id})">Salvar</button>
+    </div>`, "modal-sm");
+}
+
+async function submitAssociateCopy(creativeId) {
+  const val = document.getElementById("assoc-copy-select").value;
+  const copyId = val ? +val : null;
+  closeModal();
+  await api("PUT", `/api/creatives/${creativeId}/copy`, { copy_id: copyId });
+  const id = state.currentCampaign?.id;
+  if (id) {
+    const data = await loadCampaign(id);
+    if (data.status === "ok") {
+      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels, copies: data.copies || [] };
+      renderCopiesRow(data.copies || []);
+      renderCampaignGrid(data.creatives, data.carousels);
     }
   }
 }

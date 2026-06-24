@@ -207,10 +207,12 @@ def update_creative(
     thumbnail_url: Optional[str] = None,
     manifest_json: Optional[str] = None,
     local_path: Optional[str] = None,
+    copy_id: Optional[int] = None,
+    clear_copy: bool = False,
 ) -> Optional[dict]:
     with _conn() as cx:
         pairs = []
-        vals = []
+        vals: list = []
         if supabase_url is not None:
             pairs.append("supabase_url = ?"); vals.append(supabase_url)
         if thumbnail_url is not None:
@@ -219,6 +221,10 @@ def update_creative(
             pairs.append("manifest_json = ?"); vals.append(manifest_json)
         if local_path is not None:
             pairs.append("local_path = ?"); vals.append(local_path)
+        if copy_id is not None:
+            pairs.append("copy_id = ?"); vals.append(copy_id)
+        elif clear_copy:
+            pairs.append("copy_id = ?"); vals.append(None)
         if pairs:
             vals.append(creative_id)
             cx.execute(f"UPDATE creatives SET {', '.join(pairs)} WHERE id = ?", vals)

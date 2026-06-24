@@ -449,6 +449,23 @@ def delete_campaign(campaign_id: int) -> JSONResponse:
 
 # ---- Creatives ----
 
+class UpdateCreativeCopyRequest(BaseModel):
+    copy_id: Optional[int] = None  # None means remove association
+
+
+@app.put("/api/creatives/{creative_id}/copy")
+def set_creative_copy(creative_id: int, req: UpdateCreativeCopyRequest) -> JSONResponse:
+    creative = db.get_creative(creative_id)
+    if not creative:
+        return JSONResponse({"status": "error", "error": "Criativo não encontrado"}, status_code=404)
+    updated = db.update_creative(
+        creative_id,
+        copy_id=req.copy_id if req.copy_id else None,
+        clear_copy=(req.copy_id is None),
+    )
+    return JSONResponse({"status": "ok", "creative": updated})
+
+
 @app.delete("/api/creatives/{creative_id}")
 def delete_creative(creative_id: int) -> JSONResponse:
     ok = db.delete_creative(creative_id)
