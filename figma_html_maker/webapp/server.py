@@ -65,6 +65,7 @@ class ConvertRequest(BaseModel):
     message: str = ""
     campaign_id: Optional[int] = None
     creative_id: Optional[int] = None  # set on publish step to update existing record
+    copy_id: Optional[int] = None
 
 
 class BatchRequest(BaseModel):
@@ -78,6 +79,7 @@ class BatchRequest(BaseModel):
     message: str = ""
     campaign_id: Optional[int] = None
     creative_ids: Optional[List[Optional[int]]] = None  # parallel list to node_ids; set on publish
+    copy_id: Optional[int] = None
 
 
 class BrowseRequest(BaseModel):
@@ -115,6 +117,22 @@ class ZipExportRequest(BaseModel):
     video_creative_id: Optional[int] = None
     cover_creative_id: Optional[int] = None
     carousel_variant: str = "square"
+
+
+class CreateCopyRequest(BaseModel):
+    name: str
+    title: str = ""
+    description: str = ""
+    message: str = ""
+    content_html: str = ""
+
+
+class UpdateCopyRequest(BaseModel):
+    name: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    message: Optional[str] = None
+    content_html: Optional[str] = None
 
 
 # ---- Static / root ----
@@ -163,12 +181,24 @@ def convert_batch(req: BatchRequest) -> JSONResponse:
         return JSONResponse({"status": "config_error", "error": str(exc)}, status_code=400)
 
     try:
+        # If copy_id supplied, fill missing metatags from the copy
+        title, desc, message = req.title, req.desc, req.message
+        if req.copy_id and not (title and desc and message):
+            copy = db.get_copy(req.copy_id)
+            if copy:
+                if not title:
+                    title = copy.get("title", "")
+                if not desc:
+                    desc = copy.get("description", "")
+                if not message:
+                    message = copy.get("message", "")
+
         file_key = parse_file_key(req.file_key)
         node_ids = [parse_node_id(n) for n in req.node_ids if n.strip()]
         results = build_batch(
             file_key, node_ids, figma, uploader, str(OUTPUT_DIR),
             upload=req.upload, scale=req.scale, campaign=req.campaign,
-            title=req.title, desc=req.desc, message=req.message,
+            title=title, desc=desc, message=message,
         )
         from ..generate import build_manifest
         camp = campaign_slug(req.campaign)
@@ -214,6 +244,7 @@ def convert_batch(req: BatchRequest) -> JSONResponse:
                             figma_node_id=r.node_id,
                             format_label=r.template.format_label,
                             manifest_json=manifest_str,
+                            copy_id=req.copy_id,
                         )
                     if creative:
                         entry["creative_id"] = creative["id"]
@@ -390,11 +421,13 @@ def get_campaign(campaign_id: int) -> JSONResponse:
         return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
     creatives = db.list_creatives(campaign_id)
     carousels = db.list_carousels(campaign_id)
+    copies = db.list_copies(campaign_id)
     return JSONResponse({
         "status": "ok",
         "campaign": campaign,
         "creatives": creatives,
         "carousels": carousels,
+        "copies": copies,
     })
 
 
@@ -421,6 +454,42 @@ def delete_creative(creative_id: int) -> JSONResponse:
     ok = db.delete_creative(creative_id)
     if not ok:
         return JSONResponse({"status": "error", "error": "Criativo não encontrado"}, status_code=404)
+    return JSONResponse({"status": "ok"})
+
+
+# ---- Copies ----
+
+@app.post("/api/campaigns/{campaign_id}/copies")
+def create_copy(campaign_id: int, req: CreateCopyRequest) -> JSONResponse:
+    campaign = db.get_campaign(campaign_id)
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+    copy = db.create_copy(campaign_id, req.name, req.title, req.description, req.message, req.content_html)
+    return JSONResponse({"status": "ok", "copy": copy})
+
+
+@app.get("/api/copies/{copy_id}")
+def get_copy(copy_id: int) -> JSONResponse:
+    copy = db.get_copy(copy_id)
+    if not copy:
+        return JSONResponse({"status": "error", "error": "Copy não encontrada"}, status_code=404)
+    copy["creative_count"] = len([c for c in db.list_creatives(copy.get("campaign_id", 0)) if c.get("copy_id") == copy_id])
+    return JSONResponse({"status": "ok", "copy": copy})
+
+
+@app.put("/api/copies/{copy_id}")
+def update_copy(copy_id: int, req: UpdateCopyRequest) -> JSONResponse:
+    copy = db.update_copy(copy_id, req.name, req.title, req.description, req.message, req.content_html)
+    if not copy:
+        return JSONResponse({"status": "error", "error": "Copy não encontrada"}, status_code=404)
+    return JSONResponse({"status": "ok", "copy": copy})
+
+
+@app.delete("/api/copies/{copy_id}")
+def delete_copy(copy_id: int) -> JSONResponse:
+    ok = db.delete_copy(copy_id)
+    if not ok:
+        return JSONResponse({"status": "error", "error": "Copy não encontrada"}, status_code=404)
     return JSONResponse({"status": "ok"})
 
 

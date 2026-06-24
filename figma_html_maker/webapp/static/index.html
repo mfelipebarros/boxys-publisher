@@ -7,7 +7,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
 <style>
+/* Quill overrides */
+.ql-toolbar { border-radius: 8px 8px 0 0 !important; border-color: var(--line) !important; background: var(--canvas); }
+.ql-container { border-radius: 0 0 8px 8px !important; border-color: var(--line) !important; font-family: var(--ui); font-size: 13px; }
+.ql-editor { min-height: 160px; }
 :root {
   --canvas: #EEF0F4;
   --surface: #FFFFFF;
@@ -429,7 +434,40 @@ textarea.form-input { resize: vertical; min-height: 72px; line-height: 1.5; }
 }
 .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: var(--accent-bg); color: var(--accent-deep); }
 .upload-zone input { display: none; }
+
+/* Copy cards */
+.copies-section { margin-bottom: 28px; }
+.copies-section-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+}
+.copies-section-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--muted); font-weight: 600;
+}
+.copies-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.copy-card {
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 12px 14px; min-width: 200px; max-width: 260px; flex: none; cursor: pointer;
+  transition: border-color .15s, box-shadow .15s; position: relative;
+}
+.copy-card:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(15,164,127,.1); }
+.copy-card.pending { border-color: var(--accent); background: var(--accent-bg); }
+.copy-card-name { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+.copy-card-field { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; }
+.copy-card-count { font-size: 10px; font-family: var(--mono); color: var(--muted); margin-top: 6px; }
+.copy-card-menu {
+  position: absolute; top: 8px; right: 8px; background: transparent; border: none;
+  cursor: pointer; color: var(--muted); font-size: 14px; padding: 2px 6px;
+  border-radius: 4px; transition: all .12s;
+}
+.copy-card-menu:hover { background: var(--canvas); color: var(--ink); }
+.copy-pending-badge {
+  display: inline-block; font-size: 9px; font-family: var(--mono); font-weight: 700;
+  background: var(--accent); color: #062018; padding: 2px 6px; border-radius: 4px;
+  letter-spacing: .06em; text-transform: uppercase; margin-top: 6px;
+}
 </style>
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 </head>
 <body>
 
@@ -480,6 +518,7 @@ const state = {
   backendOk: true,
   selectedFrames: {},
   panelOpen: false,
+  pendingCopyId: null,
 };
 
 // ===== UTILS =====
@@ -649,8 +688,9 @@ async function renderCampaign(id) {
     navigate("#/"); return;
   }
 
-  const { campaign, creatives, carousels } = data;
-  state.currentCampaign = { ...campaign, creatives, carousels };
+  const { campaign, creatives, carousels, copies } = data;
+  state.currentCampaign = { ...campaign, creatives, carousels, copies: copies || [] };
+  state.pendingCopyId = null;
   document.title = `Boxys · ${campaign.name}`;
   state.selectedFrames = {};
 
@@ -667,6 +707,7 @@ async function renderCampaign(id) {
           spellcheck="false">${esc(campaign.name)}</span>
       </div>
       <div class="header-actions">
+        <button class="btn-ghost" id="btn-new-copy">+ Copy</button>
         <button class="btn-ghost" id="btn-figma-panel">+ Figma</button>
         <button class="btn-ghost" id="btn-import-html">↑ Importar HTML</button>
         <button class="btn-ghost" id="btn-import">↑ Importar mídia</button>
@@ -696,6 +737,12 @@ async function renderCampaign(id) {
             </select>
           </div>
         </div>
+        <div class="panel-field" id="p-copy-field" style="display:none">
+          <label>Associar copy (preenche metatags)</label>
+          <select class="panel-input" id="p-copy-select">
+            <option value="">— sem copy —</option>
+          </select>
+        </div>
         <button class="panel-browse-btn" id="p-browse">Buscar frames →</button>
 
         <div class="frame-picker" id="p-picker" style="display:none">
@@ -714,6 +761,15 @@ async function renderCampaign(id) {
     <!-- Hidden file inputs -->
     <input type="file" id="upload-input" multiple accept="image/*,video/*" style="display:none">
     <input type="file" id="html-import-input" accept=".html,text/html" style="display:none">
+
+    <!-- Copies section -->
+    <div class="copies-section" id="copies-section" style="display:none">
+      <div class="copies-section-header">
+        <span class="copies-section-title">Copies</span>
+        <button class="btn-ghost" style="font-size:11px;padding:4px 10px" id="btn-new-copy2">+ Nova copy</button>
+      </div>
+      <div class="copies-row" id="copies-row"></div>
+    </div>
 
     <!-- Content grid -->
     <div class="item-grid" id="campaign-grid"></div>
@@ -734,6 +790,7 @@ async function renderCampaign(id) {
   titleEl.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); } });
 
   // Wire up buttons
+  document.getElementById("btn-new-copy").addEventListener("click", () => showCreateCopyModal(campaign.id));
   document.getElementById("btn-figma-panel").addEventListener("click", toggleFigmaPanel);
   document.getElementById("btn-import-html").addEventListener("click", () => document.getElementById("html-import-input").click());
   document.getElementById("btn-import").addEventListener("click", () => document.getElementById("upload-input").click());
@@ -750,7 +807,73 @@ async function renderCampaign(id) {
   document.getElementById("p-clear-sel").addEventListener("click", panelClearSel);
   document.getElementById("p-run").addEventListener("click", panelConvert);
 
+  renderCopiesRow(copies || []);
   renderCampaignGrid(creatives, carousels);
+}
+
+function renderCopiesRow(copies) {
+  const section = document.getElementById("copies-section");
+  const row = document.getElementById("copies-row");
+  const btn2 = document.getElementById("btn-new-copy2");
+  if (!section || !row) return;
+
+  if (btn2) btn2.addEventListener("click", () => showCreateCopyModal(state.currentCampaign?.id));
+
+  if (!copies.length) {
+    section.style.display = "none";
+    return;
+  }
+  section.style.display = "block";
+  row.innerHTML = "";
+  copies.forEach(cp => row.appendChild(makeCopyCard(cp)));
+  refreshCopyPanelSelect();
+}
+
+function makeCopyCard(cp) {
+  const isPending = state.pendingCopyId === cp.id;
+  const card = el(`<div class="copy-card${isPending ? " pending" : ""}" data-copy-id="${cp.id}">
+    <div class="copy-card-name">${esc(cp.name)}</div>
+    ${cp.title ? `<div class="copy-card-field"><b>T:</b> ${esc(cp.title)}</div>` : ""}
+    ${cp.description ? `<div class="copy-card-field"><b>D:</b> ${esc(cp.description)}</div>` : ""}
+    ${cp.message ? `<div class="copy-card-field"><b>M:</b> ${esc(cp.message)}</div>` : ""}
+    <div class="copy-card-count">${cp.creative_count || 0} criativo${cp.creative_count !== 1 ? "s" : ""}</div>
+    ${isPending ? `<div class="copy-pending-badge">Selecionada</div>` : ""}
+    <button class="copy-card-menu">⋯</button>
+  </div>`);
+
+  card.addEventListener("click", e => {
+    if (e.target.classList.contains("copy-card-menu")) return;
+    setPendingCopy(cp);
+  });
+
+  card.querySelector(".copy-card-menu").addEventListener("click", e => {
+    e.stopPropagation();
+    showCtxMenu(e, [
+      { label: isPending ? "Desselecionar" : "Selecionar para conversão", action: () => setPendingCopy(isPending ? null : cp) },
+      { label: "Editar", action: () => showEditCopyModal(cp) },
+      { label: "Excluir", danger: true, action: () => deleteCopy(cp) },
+    ]);
+  });
+  return card;
+}
+
+function setPendingCopy(cp) {
+  state.pendingCopyId = cp ? cp.id : null;
+  // Re-render copy cards to reflect selection
+  const copies = state.currentCampaign?.copies || [];
+  renderCopiesRow(copies);
+  refreshCopyPanelSelect();
+}
+
+function refreshCopyPanelSelect() {
+  const sel = document.getElementById("p-copy-select");
+  const field = document.getElementById("p-copy-field");
+  if (!sel) return;
+  const copies = state.currentCampaign?.copies || [];
+  sel.innerHTML = `<option value="">— sem copy —</option>` +
+    copies.map(cp => `<option value="${cp.id}"${state.pendingCopyId === cp.id ? " selected" : ""}>${esc(cp.name)}</option>`).join("");
+  if (field) field.style.display = copies.length ? "flex" : "none";
+  sel.onchange = () => { state.pendingCopyId = sel.value ? +sel.value : null; };
 }
 
 function renderCampaignGrid(creatives, carousels) {
@@ -1017,6 +1140,7 @@ async function panelConvert() {
       file_key: fileKey, node_ids: nodeIds, scale,
       upload: false,                // preview only — Supabase happens on publish
       campaign: campaignName, campaign_id: campaignId || undefined,
+      copy_id: state.pendingCopyId || undefined,
     };
     const data = await api("POST", "/api/convert_batch", body);
     if (data.status === "config_error") {
@@ -1046,7 +1170,8 @@ async function panelConvert() {
   if (campaignId) {
     const data = await loadCampaign(campaignId);
     if (data.status === "ok") {
-      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels, copies: data.copies || [] };
+      renderCopiesRow(data.copies || []);
       renderCampaignGrid(data.creatives, data.carousels);
       await loadCampaigns();
       renderSidebar();
@@ -1101,12 +1226,15 @@ async function finalizeConvCard(card, res, upload) {
     if (warns.length) card.appendChild(el(`<div class="warn-notice">${esc(warns.join(" "))}</div>`));
 
     if (!upload) {
-      // Draft state — show metatag form + publish button
+      // Pre-fill from pending copy if available
+      const copies = state.currentCampaign?.copies || [];
+      const pendingCopy = copies.find(cp => cp.id === state.pendingCopyId);
+
       const form = el(`<div class="meta-form">
-        <div class="meta-form-label">Metatags do anúncio</div>
-        <input class="meta-title" placeholder="Título — ex: Apartamentos no Ibirapuera" spellcheck="false">
-        <textarea class="meta-desc" placeholder="Descrição completa do anúncio" spellcheck="false"></textarea>
-        <input class="meta-message" placeholder="Mensagem / CTA — ex: Clique e saiba mais" spellcheck="false">
+        <div class="meta-form-label">Metatags do anúncio${pendingCopy ? ` <span style="font-size:9px;background:var(--accent);color:#062018;padding:2px 6px;border-radius:4px;margin-left:6px;font-weight:700">copy: ${esc(pendingCopy.name)}</span>` : ""}</div>
+        <input class="meta-title" placeholder="Título — ex: Apartamentos no Ibirapuera" spellcheck="false" value="${esc(pendingCopy?.title || "")}">
+        <textarea class="meta-desc" placeholder="Descrição completa do anúncio" spellcheck="false">${esc(pendingCopy?.description || "")}</textarea>
+        <input class="meta-message" placeholder="Mensagem / CTA — ex: Clique e saiba mais" spellcheck="false" value="${esc(pendingCopy?.message || "")}">
         <div style="display:flex;align-items:center;gap:12px">
           <button class="publish-btn">↑ Publicar no Supabase</button>
           <a href="${esc(res.preview_url || "")}" target="_blank" style="font-size:12px;color:var(--accent-deep)">Preview →</a>
@@ -1143,6 +1271,7 @@ async function publishFromCard(card, prevRes) {
       campaign: campaignName, campaign_id: campaignId || undefined,
       creative_ids: creativeId ? [creativeId] : [],
       title, desc, message,
+      copy_id: state.pendingCopyId || undefined,
     };
     const data = await api("POST", "/api/convert_batch", body);
     if (data.status !== "ok" || !data.results?.[0] || data.results[0].status !== "ok") {
@@ -1159,7 +1288,8 @@ async function publishFromCard(card, prevRes) {
     if (campaignId) {
       const cdata = await loadCampaign(campaignId);
       if (cdata.status === "ok") {
-        state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels };
+        state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
+        renderCopiesRow(cdata.copies || []);
         renderCampaignGrid(cdata.creatives, cdata.carousels);
         await loadCampaigns(); renderSidebar();
       }
@@ -1183,7 +1313,8 @@ async function handleUpload(files, campaignId) {
   // Refresh
   const data = await loadCampaign(campaignId);
   if (data.status === "ok") {
-    state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+    state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels, copies: data.copies || [] };
+    renderCopiesRow(data.copies || []);
     renderCampaignGrid(data.creatives, data.carousels);
     await loadCampaigns(); renderSidebar();
   }
@@ -1313,7 +1444,7 @@ function deleteCreative(creative) {
     if (id) {
       const data = await loadCampaign(id);
       if (data.status === "ok") {
-        state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+        state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels, copies: data.copies || [] };
         renderCampaignGrid(data.creatives, data.carousels);
         await loadCampaigns(); renderSidebar();
       }
@@ -1329,7 +1460,7 @@ function deleteCarousel(carousel) {
     if (id) {
       const data = await loadCampaign(id);
       if (data.status === "ok") {
-        state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+        state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels, copies: data.copies || [] };
         renderCampaignGrid(data.creatives, data.carousels);
       }
     }
@@ -1364,7 +1495,7 @@ async function submitCreateCarousel(campaignId) {
   await api("POST", `/api/campaigns/${campaignId}/carousels`, { name });
   const data = await loadCampaign(campaignId);
   if (data.status === "ok") {
-    state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+    state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels, copies: data.copies || [] };
     renderCampaignGrid(data.creatives, data.carousels);
   }
 }
@@ -1402,7 +1533,7 @@ async function submitAddToCarousel(creativeId) {
   if (id) {
     const data = await loadCampaign(id);
     if (data.status === "ok") {
-      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels, copies: data.copies || [] };
       renderCampaignGrid(data.creatives, data.carousels);
     }
   }
@@ -1443,7 +1574,7 @@ async function removeCarouselItem(itemId, carouselId) {
   if (id) {
     const data = await loadCampaign(id);
     if (data.status === "ok") {
-      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels, copies: data.copies || [] };
       renderCampaignGrid(data.creatives, data.carousels);
     }
   }
@@ -1739,6 +1870,124 @@ async function downloadZip() {
   }
 
   btn.disabled = false; btn.textContent = "↓ Baixar ZIP";
+}
+
+// ===== COPY CRUD =====
+let _quill = null;
+
+function _buildCopyModalHtml(cp, title) {
+  return `
+    <div class="modal-header">
+      <h2>${title}</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>Nome da copy</label>
+        <input class="form-input" id="copy-name" placeholder="ex: Apartamentos Ibirapuera" value="${esc(cp?.name || "")}">
+      </div>
+      <div class="form-field">
+        <label>Título</label>
+        <input class="form-input" id="copy-title" placeholder="Título principal do anúncio" value="${esc(cp?.title || "")}">
+      </div>
+      <div class="form-field">
+        <label>Descrição</label>
+        <textarea class="form-input" id="copy-desc" placeholder="Descrição completa">${esc(cp?.description || "")}</textarea>
+      </div>
+      <div class="form-field">
+        <label>Mensagem / CTA</label>
+        <input class="form-input" id="copy-message" placeholder="ex: Clique e saiba mais" value="${esc(cp?.message || "")}">
+      </div>
+      <div class="form-field">
+        <label>Conteúdo</label>
+        <div id="copy-editor"></div>
+      </div>
+    </div>`;
+}
+
+function _initCopyQuill(initialHtml) {
+  if (!window.Quill) return;
+  _quill = new Quill("#copy-editor", {
+    theme: "snow",
+    placeholder: "Conteúdo detalhado da copy…",
+    modules: { toolbar: [["bold","italic","underline"],["link"],["clean"]] },
+  });
+  if (initialHtml) _quill.root.innerHTML = initialHtml;
+}
+
+function showCreateCopyModal(campaignId) {
+  openModal(`
+    ${_buildCopyModalHtml(null, "Nova copy")}
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="submitCreateCopy(${campaignId})">Criar copy</button>
+    </div>`, "modal-md");
+  _initCopyQuill("");
+  document.getElementById("copy-name").focus();
+}
+
+async function submitCreateCopy(campaignId) {
+  const name = document.getElementById("copy-name").value.trim();
+  if (!name) { document.getElementById("copy-name").focus(); return; }
+  const title = document.getElementById("copy-title").value.trim();
+  const description = document.getElementById("copy-desc").value.trim();
+  const message = document.getElementById("copy-message").value.trim();
+  const content_html = _quill ? _quill.root.innerHTML : "";
+  closeModal();
+  _quill = null;
+  const data = await api("POST", `/api/campaigns/${campaignId}/copies`, { name, title, description, message, content_html });
+  if (data.status === "ok") {
+    const cdata = await loadCampaign(campaignId);
+    if (cdata.status === "ok") {
+      state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
+      renderCopiesRow(cdata.copies || []);
+    }
+  }
+}
+
+function showEditCopyModal(cp) {
+  openModal(`
+    ${_buildCopyModalHtml(cp, "Editar copy")}
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="submitEditCopy(${cp.id})">Salvar</button>
+    </div>`, "modal-md");
+  _initCopyQuill(cp.content_html || "");
+}
+
+async function submitEditCopy(copyId) {
+  const name = document.getElementById("copy-name").value.trim();
+  if (!name) { document.getElementById("copy-name").focus(); return; }
+  const title = document.getElementById("copy-title").value.trim();
+  const description = document.getElementById("copy-desc").value.trim();
+  const message = document.getElementById("copy-message").value.trim();
+  const content_html = _quill ? _quill.root.innerHTML : document.getElementById("copy-editor")?.innerHTML || "";
+  closeModal();
+  _quill = null;
+  await api("PUT", `/api/copies/${copyId}`, { name, title, description, message, content_html });
+  const id = state.currentCampaign?.id;
+  if (id) {
+    const cdata = await loadCampaign(id);
+    if (cdata.status === "ok") {
+      state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
+      renderCopiesRow(cdata.copies || []);
+    }
+  }
+}
+
+function deleteCopy(cp) {
+  if (!confirm(`Excluir copy "${cp.name}"? Os criativos associados serão mantidos.`)) return;
+  api("DELETE", `/api/copies/${cp.id}`).then(async () => {
+    if (state.pendingCopyId === cp.id) state.pendingCopyId = null;
+    const id = state.currentCampaign?.id;
+    if (id) {
+      const cdata = await loadCampaign(id);
+      if (cdata.status === "ok") {
+        state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
+        renderCopiesRow(cdata.copies || []);
+      }
+    }
+  });
 }
 
 // ===== HTML IMPORT =====

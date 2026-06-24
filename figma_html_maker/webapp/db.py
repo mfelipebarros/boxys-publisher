@@ -24,9 +24,22 @@ def _migrate() -> None:
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS copies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                title TEXT DEFAULT '',
+                description TEXT DEFAULT '',
+                message TEXT DEFAULT '',
+                content_html TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS creatives (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 campaign_id INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
+                copy_id INTEGER REFERENCES copies(id) ON DELETE SET NULL,
                 type TEXT NOT NULL,
                 name TEXT NOT NULL,
                 local_path TEXT DEFAULT '',
@@ -54,6 +67,12 @@ def _migrate() -> None:
                 order_index INTEGER DEFAULT 0
             );
         """)
+    # Safe migration: add copy_id to existing creatives tables
+    with _conn() as cx:
+        try:
+            cx.execute("ALTER TABLE creatives ADD COLUMN copy_id INTEGER REFERENCES copies(id) ON DELETE SET NULL")
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
 
 def _conn() -> sqlite3.Connection:
@@ -141,14 +160,15 @@ def create_creative(
     figma_node_id: str = "",
     format_label: str = "",
     manifest_json: str = "",
+    copy_id: Optional[int] = None,
 ) -> dict:
     with _conn() as cx:
         cur = cx.execute(
             """INSERT INTO creatives
-               (campaign_id, type, name, local_path, supabase_url, thumbnail_url,
+               (campaign_id, copy_id, type, name, local_path, supabase_url, thumbnail_url,
                 width, height, figma_node_id, format_label, manifest_json)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (campaign_id, type, name, local_path, supabase_url, thumbnail_url,
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (campaign_id, copy_id, type, name, local_path, supabase_url, thumbnail_url,
              width, height, figma_node_id, format_label, manifest_json),
         )
         return _row(cx.execute("SELECT * FROM creatives WHERE id = ?", (cur.lastrowid,)).fetchone())
@@ -283,3 +303,70 @@ def get_carousel_items(carousel_id: int) -> list[dict]:
             (carousel_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+
+# ---- copies ----
+
+def create_copy(
+    campaign_id: int,
+    name: str,
+    title: str = "",
+    description: str = "",
+    message: str = "",
+    content_html: str = "",
+) -> dict:
+    with _conn() as cx:
+        cur = cx.execute(
+            """INSERT INTO copies (campaign_id, name, title, description, message, content_html)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (campaign_id, name, title, description, message, content_html),
+        )
+        return _row(cx.execute("SELECT * FROM copies WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def list_copies(campaign_id: int) -> List[dict]:
+    with _conn() as cx:
+        rows = cx.execute(
+            "SELECT * FROM copies WHERE campaign_id = ? ORDER BY updated_at DESC",
+            (campaign_id,),
+        ).fetchall()
+        result = _rows(rows)
+        for cp in result:
+            cp["creative_count"] = cx.execute(
+                "SELECT COUNT(*) FROM creatives WHERE copy_id = ?", (cp["id"],)
+            ).fetchone()[0]
+        return result
+
+
+def get_copy(copy_id: int) -> Optional[dict]:
+    with _conn() as cx:
+        return _row(cx.execute("SELECT * FROM copies WHERE id = ?", (copy_id,)).fetchone())
+
+
+def update_copy(
+    copy_id: int,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    message: Optional[str] = None,
+    content_html: Optional[str] = None,
+) -> Optional[dict]:
+    with _conn() as cx:
+        pairs = []
+        vals: list = []
+        for col, val in (("name", name), ("title", title), ("description", description),
+                         ("message", message), ("content_html", content_html)):
+            if val is not None:
+                pairs.append(f"{col} = ?")
+                vals.append(val)
+        if pairs:
+            pairs.append("updated_at = CURRENT_TIMESTAMP")
+            vals.append(copy_id)
+            cx.execute(f"UPDATE copies SET {', '.join(pairs)} WHERE id = ?", vals)
+        return _row(cx.execute("SELECT * FROM copies WHERE id = ?", (copy_id,)).fetchone())
+
+
+def delete_copy(copy_id: int) -> bool:
+    with _conn() as cx:
+        cur = cx.execute("DELETE FROM copies WHERE id = ?", (copy_id,))
+        return cur.rowcount > 0
