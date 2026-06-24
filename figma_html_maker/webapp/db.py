@@ -73,6 +73,18 @@ def _migrate() -> None:
             cx.execute("ALTER TABLE creatives ADD COLUMN copy_id INTEGER REFERENCES copies(id) ON DELETE SET NULL")
         except sqlite3.OperationalError:
             pass  # column already exists
+    # add 'type' column to copies
+    with _conn() as cx:
+        try:
+            cx.execute("ALTER TABLE copies ADD COLUMN type TEXT DEFAULT 'criativo'")
+        except sqlite3.OperationalError:
+            pass
+    # add 'content' column to copies (plain text reference)
+    with _conn() as cx:
+        try:
+            cx.execute("ALTER TABLE copies ADD COLUMN content TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
 
 
 def _conn() -> sqlite3.Connection:
@@ -320,12 +332,14 @@ def create_copy(
     description: str = "",
     message: str = "",
     content_html: str = "",
+    type: str = "criativo",
+    content: str = "",
 ) -> dict:
     with _conn() as cx:
         cur = cx.execute(
-            """INSERT INTO copies (campaign_id, name, title, description, message, content_html)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (campaign_id, name, title, description, message, content_html),
+            """INSERT INTO copies (campaign_id, name, title, description, message, content_html, type, content)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (campaign_id, name, title, description, message, content_html, type, content),
         )
         return _row(cx.execute("SELECT * FROM copies WHERE id = ?", (cur.lastrowid,)).fetchone())
 
@@ -356,12 +370,15 @@ def update_copy(
     description: Optional[str] = None,
     message: Optional[str] = None,
     content_html: Optional[str] = None,
+    type: Optional[str] = None,
+    content: Optional[str] = None,
 ) -> Optional[dict]:
     with _conn() as cx:
         pairs = []
         vals: list = []
         for col, val in (("name", name), ("title", title), ("description", description),
-                         ("message", message), ("content_html", content_html)):
+                         ("message", message), ("content_html", content_html),
+                         ("type", type), ("content", content)):
             if val is not None:
                 pairs.append(f"{col} = ?")
                 vals.append(val)

@@ -125,6 +125,8 @@ class CreateCopyRequest(BaseModel):
     description: str = ""
     message: str = ""
     content_html: str = ""
+    type: str = "criativo"
+    content: str = ""
 
 
 class UpdateCopyRequest(BaseModel):
@@ -133,6 +135,8 @@ class UpdateCopyRequest(BaseModel):
     description: Optional[str] = None
     message: Optional[str] = None
     content_html: Optional[str] = None
+    type: Optional[str] = None
+    content: Optional[str] = None
 
 
 # ---- Static / root ----
@@ -385,6 +389,16 @@ def _replace_img_src(html: str, old_url: str, new_url: str) -> str:
     return html.replace(f'src="{old_url}"', f'src="{new_url}"')
 
 
+def _extract_meta_copy_id(html: str) -> Optional[str]:
+    """Read <meta name='copy-id' content='...'> or <meta name='id' content='...'>."""
+    import re as _re
+    m = _re.search(r'<meta\s[^>]*name=["\'](?:copy-id|id)["\'][^>]*content=["\']([^"\']+)["\']', html, _re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
+    m = _re.search(r'<meta\s[^>]*content=["\']([^"\']+)["\'][^>]*name=["\'](?:copy-id|id)["\']', html, _re.IGNORECASE)
+    return m.group(1).strip() if m else None
+
+
 # ---- Creative download ----
 
 @app.get("/api/creatives/{creative_id}/download")
@@ -481,7 +495,7 @@ def create_copy(campaign_id: int, req: CreateCopyRequest) -> JSONResponse:
     campaign = db.get_campaign(campaign_id)
     if not campaign:
         return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
-    copy = db.create_copy(campaign_id, req.name, req.title, req.description, req.message, req.content_html)
+    copy = db.create_copy(campaign_id, req.name, req.title, req.description, req.message, req.content_html, type=req.type, content=req.content)
     return JSONResponse({"status": "ok", "copy": copy})
 
 
@@ -496,10 +510,103 @@ def get_copy(copy_id: int) -> JSONResponse:
 
 @app.put("/api/copies/{copy_id}")
 def update_copy(copy_id: int, req: UpdateCopyRequest) -> JSONResponse:
-    copy = db.update_copy(copy_id, req.name, req.title, req.description, req.message, req.content_html)
+    copy = db.update_copy(copy_id, req.name, req.title, req.description, req.message, req.content_html, type=req.type, content=req.content)
     if not copy:
         return JSONResponse({"status": "error", "error": "Copy não encontrada"}, status_code=404)
     return JSONResponse({"status": "ok", "copy": copy})
+
+
+class ImportCopiesRequest(BaseModel):
+    text: str
+    type: str = "criativo"  # 'criativo' or 'landing_page'
+
+
+@app.post("/api/campaigns/{campaign_id}/copies/import")
+def import_copies(campaign_id: int, req: ImportCopiesRequest) -> JSONResponse:
+    """Parse a structured text document and bulk-create copies.
+
+    Format for 'criativo':
+        id: 1
+        titulo: Titulo do anuncio
+        descricao: Descricao completa
+        mensagem: CTA texto
+        conteudo: Conteudo de referencia para designers
+
+        id: 2
+        ...
+
+    Format for 'landing_page':
+        id: 1
+        conteudo: Conteudo de referencia
+
+        id: 2
+        ...
+
+    Blocks are separated by blank lines or by a new 'id:' line.
+    """
+    campaign = db.get_campaign(campaign_id)
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+
+    import re as _re
+    text = req.text.strip()
+
+    # Split into blocks by finding 'id:' markers
+    # Each block starts at an 'id:' line
+    block_starts = [m.start() for m in _re.finditer(r'(?im)^id\s*:', text)]
+    if not block_starts:
+        return JSONResponse({"status": "error", "error": "Nenhum bloco com 'id:' encontrado"}, status_code=400)
+
+    blocks = []
+    for i, start in enumerate(block_starts):
+        end = block_starts[i + 1] if i + 1 < len(block_starts) else len(text)
+        blocks.append(text[start:end].strip())
+
+    def extract_field(block_text: str, field: str) -> str:
+        """Extract field value, supporting multi-line values until next field or end."""
+        pattern = _re.compile(
+            rf'(?im)^{_re.escape(field)}\s*:\s*(.*?)(?=\n\s*(?:id|titulo|descricao|mensagem|conteudo)\s*:|$)',
+            _re.DOTALL
+        )
+        m = pattern.search(block_text)
+        if not m:
+            return ""
+        return m.group(1).strip()
+
+    created = []
+    errors = []
+    for block in blocks:
+        copy_ref_id = extract_field(block, "id")
+        if not copy_ref_id:
+            errors.append(f"Bloco sem id: {block[:40]!r}")
+            continue
+
+        content = extract_field(block, "conteudo")
+
+        if req.type == "landing_page":
+            cp = db.create_copy(
+                campaign_id=campaign_id,
+                name=copy_ref_id,
+                type="landing_page",
+                content=content,
+            )
+        else:
+            titulo = extract_field(block, "titulo")
+            descricao = extract_field(block, "descricao")
+            mensagem = extract_field(block, "mensagem")
+            cp = db.create_copy(
+                campaign_id=campaign_id,
+                name=copy_ref_id,
+                title=titulo,
+                description=descricao,
+                message=mensagem,
+                type="criativo",
+                content=content,
+            )
+        created.append(cp)
+
+    db.touch_campaign(campaign_id)
+    return JSONResponse({"status": "ok", "created": len(created), "copies": created, "errors": errors})
 
 
 @app.delete("/api/copies/{copy_id}")
@@ -637,6 +744,16 @@ async def import_html_endpoint(
     html_path = dest_dir / "index.html"
     html_path.write_text(html, encoding="utf-8")
 
+    # Auto-associate with copy by copy-id metatag
+    matched_copy_id = None
+    meta_copy_ref = _extract_meta_copy_id(html)
+    if meta_copy_ref:
+        camp_copies = db.list_copies(campaign_id)
+        for cp in camp_copies:
+            if cp["name"] == meta_copy_ref:
+                matched_copy_id = cp["id"]
+                break
+
     creative = db.create_creative(
         campaign_id=campaign_id,
         type="html",
@@ -648,6 +765,7 @@ async def import_html_endpoint(
         height=parsed["height"],
         format_label=fmt,
         manifest_json="",
+        copy_id=matched_copy_id,
     )
     db.touch_campaign(campaign_id)
     return JSONResponse({"status": "ok", "creative": creative})

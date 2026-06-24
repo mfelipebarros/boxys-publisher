@@ -466,6 +466,55 @@ textarea.form-input { resize: vertical; min-height: 72px; line-height: 1.5; }
   background: var(--accent); color: #062018; padding: 2px 6px; border-radius: 4px;
   letter-spacing: .06em; text-transform: uppercase; margin-top: 6px;
 }
+
+/* Copy type badge */
+.copy-card-type {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--accent-deep);
+  margin-bottom: 4px;
+}
+
+/* Dropdown wraps */
+.dropdown-wrap { position: relative; display: inline-block; }
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+}
+.dd-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--fg);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.dd-item:hover { background: var(--hover); }
+.dd-divider { height: 1px; background: var(--line); margin: 4px 0; }
+
+/* Copy detail / editor pages */
+.copy-detail-body, .copy-editor-body { max-width: 720px; padding: 0 0 48px; }
+.copy-detail-field { margin-bottom: 24px; }
+.copy-detail-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; }
+.copy-detail-value { font-size: 14px; line-height: 1.6; color: var(--fg); white-space: pre-wrap; }
+.copy-detail-content { font-family: var(--mono); font-size: 13px; background: var(--canvas); padding: 12px; border-radius: 6px; }
+.copy-editor-form { max-width: 720px; display: flex; flex-direction: column; gap: 16px; padding-bottom: 48px; }
+.btn-danger { padding: 7px 14px; border-radius: 8px; border: 1px solid #e05; color: #e05; background: none; cursor: pointer; font-size: 13px; }
+.btn-danger:hover { background: rgba(238,0,85,.08); }
 </style>
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 </head>
@@ -519,6 +568,7 @@ const state = {
   selectedFrames: {},
   panelOpen: false,
   pendingCopyId: null,
+  newCopyType: "criativo",
 };
 
 // ===== UTILS =====
@@ -592,13 +642,23 @@ function renderSidebar() {
 function route() {
   const hash = window.location.hash || "#/";
   renderSidebar();
-  if (hash === "#/") {
-    renderHome();
-  } else {
-    const m = hash.match(/^#\/campaigns\/(\d+)/);
-    if (m) renderCampaign(parseInt(m[1]));
-    else renderHome();
-  }
+
+  // copy viewer: #/campaigns/5/copies/3
+  const mCopyView = hash.match(/^#\/campaigns\/(\d+)\/copies\/(\d+)$/);
+  if (mCopyView) { renderCopyViewer(parseInt(mCopyView[1]), parseInt(mCopyView[2])); return; }
+
+  // copy editor (edit): #/campaigns/5/copies/3/edit
+  const mCopyEdit = hash.match(/^#\/campaigns\/(\d+)\/copies\/(\d+)\/edit$/);
+  if (mCopyEdit) { renderCopyEditor(parseInt(mCopyEdit[1]), parseInt(mCopyEdit[2])); return; }
+
+  // copy editor (new): #/campaigns/5/copies/new
+  const mCopyNew = hash.match(/^#\/campaigns\/(\d+)\/copies\/new$/);
+  if (mCopyNew) { renderCopyEditor(parseInt(mCopyNew[1]), null); return; }
+
+  if (hash === "#/") { renderHome(); return; }
+  const m = hash.match(/^#\/campaigns\/(\d+)/);
+  if (m) renderCampaign(parseInt(m[1]));
+  else renderHome();
 }
 
 // ===== HOME VIEW =====
@@ -707,10 +767,23 @@ async function renderCampaign(id) {
           spellcheck="false">${esc(campaign.name)}</span>
       </div>
       <div class="header-actions">
-        <button class="btn-ghost" id="btn-new-copy">+ Copy</button>
-        <button class="btn-ghost" id="btn-figma-panel">+ Figma</button>
-        <button class="btn-ghost" id="btn-import-html">↑ Importar HTML</button>
-        <button class="btn-ghost" id="btn-import">↑ Importar mídia</button>
+        <div class="dropdown-wrap" id="dd-copy-wrap">
+          <button class="btn-ghost" id="btn-new-copy">+ Copy ▾</button>
+          <div class="dropdown-menu" id="dd-copy-menu" style="display:none">
+            <button class="dd-item" data-copy-type="criativo">Criativo</button>
+            <button class="dd-item" data-copy-type="landing_page">Landing page</button>
+            <div class="dd-divider"></div>
+            <button class="dd-item" id="dd-import-copies">↑ Importar copies</button>
+          </div>
+        </div>
+        <div class="dropdown-wrap" id="dd-import-wrap">
+          <button class="btn-ghost" id="btn-import-dd">↑ Importar ▾</button>
+          <div class="dropdown-menu" id="dd-import-menu" style="display:none">
+            <button class="dd-item" id="dd-import-figma">Figma</button>
+            <button class="dd-item" id="dd-import-html">HTML</button>
+            <button class="dd-item" id="dd-import-media">Mídia</button>
+          </div>
+        </div>
         <button class="btn-ghost" id="btn-new-carousel">⊞ Carrossel</button>
         <button class="btn-primary" id="btn-zip">↓ Exportar ZIP</button>
       </div>
@@ -766,7 +839,6 @@ async function renderCampaign(id) {
     <div class="copies-section" id="copies-section" style="display:none">
       <div class="copies-section-header">
         <span class="copies-section-title">Copies</span>
-        <button class="btn-ghost" style="font-size:11px;padding:4px 10px" id="btn-new-copy2">+ Nova copy</button>
       </div>
       <div class="copies-row" id="copies-row"></div>
     </div>
@@ -790,10 +862,32 @@ async function renderCampaign(id) {
   titleEl.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); } });
 
   // Wire up buttons
-  document.getElementById("btn-new-copy").addEventListener("click", () => showCreateCopyModal(campaign.id));
-  document.getElementById("btn-figma-panel").addEventListener("click", toggleFigmaPanel);
-  document.getElementById("btn-import-html").addEventListener("click", () => document.getElementById("html-import-input").click());
-  document.getElementById("btn-import").addEventListener("click", () => document.getElementById("upload-input").click());
+  // Copy dropdown
+  const ddCopyBtn = document.getElementById("btn-new-copy");
+  const ddCopyMenu = document.getElementById("dd-copy-menu");
+  ddCopyBtn.addEventListener("click", e => { e.stopPropagation(); ddCopyMenu.style.display = ddCopyMenu.style.display === "none" ? "block" : "none"; });
+  ddCopyMenu.querySelectorAll("[data-copy-type]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      ddCopyMenu.style.display = "none";
+      state.newCopyType = btn.dataset.copyType;
+      window.location.hash = `#/campaigns/${campaign.id}/copies/new`;
+    });
+  });
+  document.getElementById("dd-import-copies").addEventListener("click", () => { ddCopyMenu.style.display = "none"; showImportCopiesModal(campaign.id); });
+
+  // Import dropdown
+  const ddImportBtn = document.getElementById("btn-import-dd");
+  const ddImportMenu = document.getElementById("dd-import-menu");
+  ddImportBtn.addEventListener("click", e => { e.stopPropagation(); ddImportMenu.style.display = ddImportMenu.style.display === "none" ? "block" : "none"; });
+  document.getElementById("dd-import-figma").addEventListener("click", () => { ddImportMenu.style.display = "none"; toggleFigmaPanel(); });
+  document.getElementById("dd-import-html").addEventListener("click", () => { ddImportMenu.style.display = "none"; document.getElementById("html-import-input").click(); });
+  document.getElementById("dd-import-media").addEventListener("click", () => { ddImportMenu.style.display = "none"; document.getElementById("upload-input").click(); });
+
+  // Close dropdowns on outside click
+  document._ddCloseHandler && document.removeEventListener("click", document._ddCloseHandler);
+  document._ddCloseHandler = () => { ddCopyMenu.style.display = "none"; ddImportMenu.style.display = "none"; };
+  document.addEventListener("click", document._ddCloseHandler);
+
   document.getElementById("btn-new-carousel").addEventListener("click", () => showCreateCarouselModal(campaign.id));
   document.getElementById("btn-zip").addEventListener("click", () => showZipModal());
   document.getElementById("upload-input").addEventListener("change", e => handleUpload(e.target.files, campaign.id));
@@ -814,10 +908,7 @@ async function renderCampaign(id) {
 function renderCopiesRow(copies) {
   const section = document.getElementById("copies-section");
   const row = document.getElementById("copies-row");
-  const btn2 = document.getElementById("btn-new-copy2");
   if (!section || !row) return;
-
-  if (btn2) btn2.addEventListener("click", () => showCreateCopyModal(state.currentCampaign?.id));
 
   if (!copies.length) {
     section.style.display = "none";
@@ -831,11 +922,13 @@ function renderCopiesRow(copies) {
 
 function makeCopyCard(cp) {
   const isPending = state.pendingCopyId === cp.id;
+  const typeLabel = cp.type === "landing_page" ? "Landing page" : "Criativo";
   const card = el(`<div class="copy-card${isPending ? " pending" : ""}" data-copy-id="${cp.id}">
+    <div class="copy-card-type">${typeLabel}</div>
     <div class="copy-card-name">${esc(cp.name)}</div>
-    ${cp.title ? `<div class="copy-card-field"><b>T:</b> ${esc(cp.title)}</div>` : ""}
-    ${cp.description ? `<div class="copy-card-field"><b>D:</b> ${esc(cp.description)}</div>` : ""}
-    ${cp.message ? `<div class="copy-card-field"><b>M:</b> ${esc(cp.message)}</div>` : ""}
+    ${cp.type !== "landing_page" && cp.title ? `<div class="copy-card-field"><b>T:</b> ${esc(cp.title)}</div>` : ""}
+    ${cp.type !== "landing_page" && cp.description ? `<div class="copy-card-field"><b>D:</b> ${esc(cp.description)}</div>` : ""}
+    ${cp.type !== "landing_page" && cp.message ? `<div class="copy-card-field"><b>M:</b> ${esc(cp.message)}</div>` : ""}
     <div class="copy-card-count">${cp.creative_count || 0} criativo${cp.creative_count !== 1 ? "s" : ""}</div>
     ${isPending ? `<div class="copy-pending-badge">Selecionada</div>` : ""}
     <button class="copy-card-menu">⋯</button>
@@ -843,14 +936,14 @@ function makeCopyCard(cp) {
 
   card.addEventListener("click", e => {
     if (e.target.classList.contains("copy-card-menu")) return;
-    setPendingCopy(cp);
+    window.location.hash = `#/campaigns/${state.currentCampaign?.id}/copies/${cp.id}`;
   });
 
   card.querySelector(".copy-card-menu").addEventListener("click", e => {
     e.stopPropagation();
     showCtxMenu(e, [
       { label: isPending ? "Desselecionar" : "Selecionar para conversão", action: () => setPendingCopy(isPending ? null : cp) },
-      { label: "Editar", action: () => showEditCopyModal(cp) },
+      { label: "Editar", action: () => { window.location.hash = `#/campaigns/${state.currentCampaign?.id}/copies/${cp.id}/edit`; } },
       { label: "Excluir", danger: true, action: () => deleteCopy(cp) },
     ]);
   });
@@ -2035,6 +2128,255 @@ function deleteCopy(cp) {
         state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
         renderCopiesRow(cdata.copies || []);
       }
+    }
+  });
+}
+
+// ===== COPY PAGES =====
+
+function showImportCopiesModal(campaignId) {
+  openModal(`
+    <div class="modal-header">
+      <h2>Importar copies</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>Tipo</label>
+        <select class="form-input" id="import-copies-type">
+          <option value="criativo">Criativo</option>
+          <option value="landing_page">Landing page</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Cole o documento de copies abaixo</label>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:8px">
+          Formato criativo: id: 1 / titulo: ... / descricao: ... / mensagem: ... / conteudo: ...<br>
+          Formato landing page: id: 1 / conteudo: ...
+        </p>
+        <textarea class="form-input" id="import-copies-text" style="min-height:200px;font-family:var(--mono);font-size:12px" placeholder="id: 1&#10;titulo: Apartamentos Ibirapuera&#10;descricao: Descrição completa&#10;mensagem: Saiba mais&#10;conteudo: Referência visual&#10;&#10;id: 2&#10;titulo: ..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" id="btn-confirm-import-copies">Importar</button>
+    </div>`, "modal-md");
+
+  document.getElementById("btn-confirm-import-copies").addEventListener("click", async () => {
+    const text = document.getElementById("import-copies-text").value.trim();
+    const type = document.getElementById("import-copies-type").value;
+    if (!text) return;
+    const btn = document.getElementById("btn-confirm-import-copies");
+    btn.disabled = true; btn.textContent = "Importando…";
+    const data = await api("POST", `/api/campaigns/${campaignId}/copies/import`, { text, type });
+    if (data.status === "ok") {
+      closeModal();
+      const cdata = await loadCampaign(campaignId);
+      if (cdata.status === "ok") {
+        state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
+        renderCopiesRow(cdata.copies || []);
+        renderCampaignGrid(cdata.creatives, cdata.carousels);
+      }
+      if (data.errors?.length) alert(`Importado com avisos:\n${data.errors.join("\n")}`);
+    } else {
+      btn.disabled = false; btn.textContent = "Importar";
+      alert("Erro: " + (data.error || "falha desconhecida"));
+    }
+  });
+}
+
+async function renderCopyViewer(campaignId, copyId) {
+  const main = document.getElementById("main");
+  main.innerHTML = `<div style="padding:32px;color:var(--muted)">Carregando…</div>`;
+
+  // Ensure campaign is loaded
+  if (!state.currentCampaign || state.currentCampaign.id !== campaignId) {
+    const cdata = await loadCampaign(campaignId);
+    if (cdata.status !== "ok") { window.location.hash = `#/campaigns/${campaignId}`; return; }
+    state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
+  }
+
+  const r = await api("GET", `/api/copies/${copyId}`);
+  if (r.status !== "ok") { window.location.hash = `#/campaigns/${campaignId}`; return; }
+  const cp = r.copy;
+  const typeLabel = cp.type === "landing_page" ? "Landing page" : "Criativo";
+
+  main.innerHTML = `
+    <div class="breadcrumb">
+      <a href="#/" class="bc-link">Campanhas</a>
+      <span class="sep">›</span>
+      <a href="#/campaigns/${campaignId}" class="bc-link">${esc(state.currentCampaign.name)}</a>
+      <span class="sep">›</span>
+      <span>Copy · ${esc(cp.name)}</span>
+    </div>
+    <div class="view-header">
+      <div>
+        <h1 style="font-size:22px">${esc(cp.name)}</h1>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">${typeLabel} · ${cp.creative_count || 0} criativo${cp.creative_count !== 1 ? "s" : ""} associado${cp.creative_count !== 1 ? "s" : ""}</div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-ghost" id="cv-select-btn">${state.pendingCopyId === cp.id ? "✓ Selecionada para conversão" : "Selecionar para conversão"}</button>
+        <button class="btn-ghost" onclick="window.location.hash='#/campaigns/${campaignId}/copies/${copyId}/edit'">Editar</button>
+        <button class="btn-danger" id="cv-delete-btn">Excluir</button>
+      </div>
+    </div>
+    <div class="copy-detail-body">
+      ${cp.type !== "landing_page" && cp.title ? `
+        <div class="copy-detail-field">
+          <div class="copy-detail-label">Título</div>
+          <div class="copy-detail-value">${esc(cp.title)}</div>
+        </div>` : ""}
+      ${cp.type !== "landing_page" && cp.description ? `
+        <div class="copy-detail-field">
+          <div class="copy-detail-label">Descrição</div>
+          <div class="copy-detail-value">${esc(cp.description)}</div>
+        </div>` : ""}
+      ${cp.type !== "landing_page" && cp.message ? `
+        <div class="copy-detail-field">
+          <div class="copy-detail-label">Mensagem / CTA</div>
+          <div class="copy-detail-value">${esc(cp.message)}</div>
+        </div>` : ""}
+      ${cp.content ? `
+        <div class="copy-detail-field">
+          <div class="copy-detail-label">Conteúdo</div>
+          <div class="copy-detail-value copy-detail-content">${esc(cp.content)}</div>
+        </div>` : ""}
+      ${cp.content_html && cp.content_html !== "<p><br></p>" ? `
+        <div class="copy-detail-field">
+          <div class="copy-detail-label">Conteúdo rich-text</div>
+          <div class="copy-detail-value ql-editor" style="border:1px solid var(--line);border-radius:8px;padding:12px">${cp.content_html}</div>
+        </div>` : ""}
+    </div>
+  `;
+
+  document.title = `Boxys · ${cp.name}`;
+  renderSidebar();
+
+  document.getElementById("cv-select-btn").addEventListener("click", () => {
+    setPendingCopy(state.pendingCopyId === cp.id ? null : cp);
+    // Update button text
+    const btn = document.getElementById("cv-select-btn");
+    if (btn) btn.textContent = state.pendingCopyId === cp.id ? "✓ Selecionada para conversão" : "Selecionar para conversão";
+  });
+
+  document.getElementById("cv-delete-btn").addEventListener("click", () => {
+    deleteCopy(cp);
+  });
+}
+
+async function renderCopyEditor(campaignId, copyId) {
+  const main = document.getElementById("main");
+  main.innerHTML = `<div style="padding:32px;color:var(--muted)">Carregando…</div>`;
+
+  // Ensure campaign is loaded
+  if (!state.currentCampaign || state.currentCampaign.id !== campaignId) {
+    const cdata = await loadCampaign(campaignId);
+    if (cdata.status !== "ok") { window.location.hash = `#/campaigns/${campaignId}`; return; }
+    state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels, copies: cdata.copies || [] };
+  }
+
+  let cp = null;
+  if (copyId) {
+    const r = await api("GET", `/api/copies/${copyId}`);
+    if (r.status !== "ok") { window.location.hash = `#/campaigns/${campaignId}`; return; }
+    cp = r.copy;
+  }
+
+  const copyType = cp?.type || state.newCopyType || "criativo";
+  const isLanding = copyType === "landing_page";
+  const typeLabel = isLanding ? "Landing page" : "Criativo";
+  const backHash = copyId ? `#/campaigns/${campaignId}/copies/${copyId}` : `#/campaigns/${campaignId}`;
+
+  main.innerHTML = `
+    <div class="breadcrumb">
+      <a href="#/" class="bc-link">Campanhas</a>
+      <span class="sep">›</span>
+      <a href="#/campaigns/${campaignId}" class="bc-link">${esc(state.currentCampaign.name)}</a>
+      <span class="sep">›</span>
+      <span>${copyId ? `Editar copy` : `Nova copy · ${typeLabel}`}</span>
+    </div>
+    <div class="view-header">
+      <div><h1 style="font-size:22px">${copyId ? "Editar copy" : `Nova copy — ${typeLabel}`}</h1></div>
+      <div class="header-actions">
+        <button class="btn-ghost" onclick="window.location.hash='${backHash}'">Cancelar</button>
+        <button class="btn-primary" id="ce-save-btn">Salvar</button>
+      </div>
+    </div>
+    <div class="copy-editor-body">
+      <div class="copy-editor-form">
+        <div class="form-field">
+          <label>ID da copy</label>
+          <input class="form-input" id="ce-name" placeholder="ex: ap-ibirapuera-1" value="${esc(cp?.name || "")}">
+        </div>
+        ${!isLanding ? `
+        <div class="form-field">
+          <label>Título</label>
+          <input class="form-input" id="ce-title" placeholder="Título principal do anúncio" value="${esc(cp?.title || "")}">
+        </div>
+        <div class="form-field">
+          <label>Descrição</label>
+          <textarea class="form-input" id="ce-desc" placeholder="Descrição completa">${esc(cp?.description || "")}</textarea>
+        </div>
+        <div class="form-field">
+          <label>Mensagem / CTA</label>
+          <input class="form-input" id="ce-message" placeholder="ex: Clique e saiba mais" value="${esc(cp?.message || "")}">
+        </div>` : ""}
+        <div class="form-field">
+          <label>Conteúdo (referência para designers)</label>
+          <textarea class="form-input" id="ce-content" style="min-height:120px" placeholder="Texto de referência visual/conteúdo para a equipe">${esc(cp?.content || "")}</textarea>
+        </div>
+        <div class="form-field">
+          <label>Conteúdo rich-text</label>
+          <div id="ce-editor"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.title = `Boxys · ${copyId ? "Editar copy" : "Nova copy"}`;
+
+  // Init Quill on the page
+  if (window.Quill) {
+    _quill = new Quill("#ce-editor", {
+      theme: "snow",
+      placeholder: "Conteúdo detalhado da copy…",
+      modules: { toolbar: [["bold","italic","underline"],["link"],["clean"]] },
+    });
+    if (cp?.content_html) _quill.root.innerHTML = cp.content_html;
+  }
+
+  document.getElementById("ce-name").focus();
+
+  document.getElementById("ce-save-btn").addEventListener("click", async () => {
+    const name = document.getElementById("ce-name").value.trim();
+    if (!name) { document.getElementById("ce-name").focus(); return; }
+    const content = document.getElementById("ce-content")?.value?.trim() || "";
+    const content_html = _quill ? _quill.root.innerHTML : "";
+
+    let payload = { name, type: copyType, content, content_html };
+    if (!isLanding) {
+      payload.title = document.getElementById("ce-title")?.value?.trim() || "";
+      payload.description = document.getElementById("ce-desc")?.value?.trim() || "";
+      payload.message = document.getElementById("ce-message")?.value?.trim() || "";
+    }
+
+    const btn = document.getElementById("ce-save-btn");
+    btn.disabled = true; btn.textContent = "Salvando…";
+
+    let data;
+    if (copyId) {
+      data = await api("PUT", `/api/copies/${copyId}`, payload);
+    } else {
+      data = await api("POST", `/api/campaigns/${campaignId}/copies`, payload);
+    }
+
+    if (data.status === "ok") {
+      _quill = null;
+      const savedId = data.copy?.id || copyId;
+      window.location.hash = `#/campaigns/${campaignId}/copies/${savedId}`;
+    } else {
+      btn.disabled = false; btn.textContent = "Salvar";
+      alert("Erro: " + (data.error || "falha ao salvar"));
     }
   });
 }
