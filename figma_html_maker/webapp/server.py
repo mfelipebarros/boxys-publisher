@@ -725,63 +725,74 @@ class ImportCopiesRequest(BaseModel):
 def import_copies(campaign_id: int, req: ImportCopiesRequest) -> JSONResponse:
     """Parse a structured text document and bulk-create copies.
 
-    Format for 'criativo':
-        id: 1
-        titulo: Titulo do anuncio
-        descricao: Descricao completa
-        mensagem: CTA texto
-        conteudo: Conteudo de referencia para designers
-
-        id: 2
-        ...
-
-    Format for 'landing_page':
-        id: 1
-        conteudo: Conteudo de referencia
-
-        id: 2
-        ...
-
-    Blocks are separated by blank lines or by a new 'id:' line.
+    Supports both plain format (id:/titulo:/descricao:/mensagem:/conteudo:)
+    and the rich document format with accents (Descrição:, Conteúdo:, Mensagem/CTA:)
+    and optional Variação: headers before each block.
     """
     campaign = db.get_campaign(campaign_id)
     if not campaign:
         return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
 
     import re as _re
+    import unicodedata
+
+    def _norm(s: str) -> str:
+        """Lowercase + strip accents for field name matching."""
+        return unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode().lower()
+
     text = req.text.strip()
 
-    # Split into blocks by finding 'id:' markers
-    # Each block starts at an 'id:' line
-    block_starts = [m.start() for m in _re.finditer(r'(?im)^id\s*:', text)]
+    # Split blocks: prefer Variação: as delimiter (real doc format), fallback to id: only
+    variac_starts = [m.start() for m in _re.finditer(r'(?im)^varia[cç][aã]o\s*:', text)]
+    if variac_starts:
+        block_starts = variac_starts
+    else:
+        block_starts = [m.start() for m in _re.finditer(r'(?im)^id\s*:', text)]
+
     if not block_starts:
-        return JSONResponse({"status": "error", "error": "Nenhum bloco com 'id:' encontrado"}, status_code=400)
+        return JSONResponse({"status": "error", "error": "Nenhum bloco encontrado (esperado 'Variação:' ou 'id:')"}, status_code=400)
 
     blocks = []
     for i, start in enumerate(block_starts):
         end = block_starts[i + 1] if i + 1 < len(block_starts) else len(text)
         blocks.append(text[start:end].strip())
 
-    def extract_field(block_text: str, field: str) -> str:
-        """Extract field value, supporting multi-line values until next field or end."""
-        pattern = _re.compile(
-            rf'(?im)^{_re.escape(field)}\s*:\s*(.*?)(?=\n\s*(?:id|titulo|descricao|mensagem|conteudo)\s*:|$)',
-            _re.DOTALL
-        )
-        m = pattern.search(block_text)
-        if not m:
-            return ""
-        return m.group(1).strip()
+    # Known field aliases — normalized (no accent, lowercase) → canonical name
+    _FIELD_ALIASES = {
+        "id": "id",
+        "titulo": "titulo",
+        "descricao": "descricao",
+        "mensagem": "mensagem",
+        "mensagem/cta": "mensagem",
+        "conteudo": "conteudo",
+        "variacao": "variacao",
+    }
+    # Regex to find any known field label at line start
+    _FIELD_PAT = _re.compile(
+        r'(?im)^([A-Za-zÀ-ÿ/]+)\s*:\s*(.*?)(?=\n[A-Za-zÀ-ÿ/]+\s*:|\Z)',
+        _re.DOTALL,
+    )
+
+    def parse_block(block_text: str) -> dict:
+        fields: dict = {}
+        for m in _FIELD_PAT.finditer(block_text):
+            raw_key = m.group(1).strip()
+            norm_key = _norm(raw_key)
+            canonical = _FIELD_ALIASES.get(norm_key)
+            if canonical and canonical not in fields:
+                fields[canonical] = m.group(2).strip()
+        return fields
 
     created = []
     errors = []
     for block in blocks:
-        copy_ref_id = extract_field(block, "id")
+        parsed = parse_block(block)
+        copy_ref_id = parsed.get("id", "").strip()
         if not copy_ref_id:
-            errors.append(f"Bloco sem id: {block[:40]!r}")
+            errors.append(f"Bloco sem id: {block[:60]!r}")
             continue
 
-        content = extract_field(block, "conteudo")
+        content = parsed.get("conteudo", "")
 
         if req.type == "landing_page":
             cp = db.create_copy(
@@ -791,9 +802,9 @@ def import_copies(campaign_id: int, req: ImportCopiesRequest) -> JSONResponse:
                 content=content,
             )
         else:
-            titulo = extract_field(block, "titulo")
-            descricao = extract_field(block, "descricao")
-            mensagem = extract_field(block, "mensagem")
+            titulo = parsed.get("titulo", "")
+            descricao = parsed.get("descricao", "")
+            mensagem = parsed.get("mensagem", "")
             cp = db.create_copy(
                 campaign_id=campaign_id,
                 name=copy_ref_id,
