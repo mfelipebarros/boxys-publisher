@@ -668,7 +668,8 @@ async function renderCampaign(id) {
       </div>
       <div class="header-actions">
         <button class="btn-ghost" id="btn-figma-panel">+ Figma</button>
-        <button class="btn-ghost" id="btn-import">↑ Importar</button>
+        <button class="btn-ghost" id="btn-import-html">↑ Importar HTML</button>
+        <button class="btn-ghost" id="btn-import">↑ Importar mídia</button>
         <button class="btn-ghost" id="btn-new-carousel">⊞ Carrossel</button>
         <button class="btn-primary" id="btn-zip">↓ Exportar ZIP</button>
       </div>
@@ -710,8 +711,9 @@ async function renderCampaign(id) {
       </div>
     </div>
 
-    <!-- Hidden file input for upload -->
+    <!-- Hidden file inputs -->
     <input type="file" id="upload-input" multiple accept="image/*,video/*" style="display:none">
+    <input type="file" id="html-import-input" accept=".html,text/html" style="display:none">
 
     <!-- Content grid -->
     <div class="item-grid" id="campaign-grid"></div>
@@ -733,10 +735,12 @@ async function renderCampaign(id) {
 
   // Wire up buttons
   document.getElementById("btn-figma-panel").addEventListener("click", toggleFigmaPanel);
+  document.getElementById("btn-import-html").addEventListener("click", () => document.getElementById("html-import-input").click());
   document.getElementById("btn-import").addEventListener("click", () => document.getElementById("upload-input").click());
   document.getElementById("btn-new-carousel").addEventListener("click", () => showCreateCarouselModal(campaign.id));
   document.getElementById("btn-zip").addEventListener("click", () => showZipModal());
   document.getElementById("upload-input").addEventListener("change", e => handleUpload(e.target.files, campaign.id));
+  document.getElementById("html-import-input").addEventListener("change", e => handleHtmlImportSelect(e.target.files[0], campaign.id));
 
   // Wire up Figma panel
   if (campaign.figma_file_key) {
@@ -1735,6 +1739,101 @@ async function downloadZip() {
   }
 
   btn.disabled = false; btn.textContent = "↓ Baixar ZIP";
+}
+
+// ===== HTML IMPORT =====
+async function handleHtmlImportSelect(file, campaignId) {
+  if (!file) return;
+  const input = document.getElementById("html-import-input");
+  if (input) input.value = "";
+
+  // Parse the HTML first
+  const fd = new FormData();
+  fd.append("file", file);
+  let parsed;
+  try {
+    const r = await fetch(`/api/campaigns/${campaignId}/parse-html`, { method: "POST", body: fd });
+    parsed = await r.json();
+    if (parsed.status !== "ok") throw new Error(parsed.error || "Erro ao ler o arquivo");
+  } catch(e) {
+    alert("Erro ao analisar o HTML: " + e.message);
+    return;
+  }
+
+  const { meta, images, filename } = parsed;
+  const total = images.length;
+  const inSupabase = images.filter(i => i.in_supabase).length;
+  const toUpload = total - inSupabase;
+
+  const imgSummary = total === 0
+    ? `<p style="font-size:12px;color:var(--muted)">Nenhuma imagem encontrada no HTML.</p>`
+    : `<p style="font-size:12px;color:var(--muted)">
+        ${total} imagem${total !== 1 ? "s" : ""} encontrada${total !== 1 ? "s" : ""} —
+        ${inSupabase} já no Supabase${toUpload > 0 ? `, <b>${toUpload} será${toUpload !== 1 ? "ão" : ""} importada${toUpload !== 1 ? "s" : ""}</b>` : ""}.
+       </p>`;
+
+  openModal(`
+    <div class="modal-header">
+      <h2>Importar HTML</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px;font-family:var(--mono)">${esc(filename)}</p>
+      <div class="form-field">
+        <label>Título</label>
+        <input class="form-input" id="ihtml-title" value="${esc(meta.title)}" placeholder="Título do anúncio">
+      </div>
+      <div class="form-field">
+        <label>Descrição</label>
+        <textarea class="form-input" id="ihtml-desc" placeholder="Descrição completa">${esc(meta.desc)}</textarea>
+      </div>
+      <div class="form-field">
+        <label>Mensagem / CTA</label>
+        <input class="form-input" id="ihtml-message" value="${esc(meta.message)}" placeholder="ex: Clique e saiba mais">
+      </div>
+      ${meta.format_label ? `<p style="font-size:12px;color:var(--muted)">Formato detectado: <b>${esc(meta.format_label)}</b></p>` : ""}
+      <div style="margin-top:12px">${imgSummary}</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" id="btn-confirm-html-import">↑ Importar e subir imagens</button>
+    </div>`, "modal-md");
+
+  document.getElementById("btn-confirm-html-import").addEventListener("click", () =>
+    submitHtmlImport(file, campaignId)
+  );
+}
+
+async function submitHtmlImport(file, campaignId) {
+  const btn = document.getElementById("btn-confirm-html-import");
+  btn.disabled = true; btn.textContent = "Importando…";
+
+  const title   = document.getElementById("ihtml-title")?.value?.trim() || "";
+  const desc    = document.getElementById("ihtml-desc")?.value?.trim() || "";
+  const message = document.getElementById("ihtml-message")?.value?.trim() || "";
+
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("title", title);
+  fd.append("desc", desc);
+  fd.append("message", message);
+  fd.append("upload", "true");
+
+  try {
+    const r = await fetch(`/api/campaigns/${campaignId}/import-html`, { method: "POST", body: fd });
+    const data = await r.json();
+    if (data.status !== "ok") throw new Error(data.error || "Falha ao importar");
+    closeModal();
+    const cdata = await loadCampaign(campaignId);
+    if (cdata.status === "ok") {
+      state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels };
+      renderCampaignGrid(cdata.creatives, cdata.carousels);
+      await loadCampaigns(); renderSidebar();
+    }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = "↑ Importar e subir imagens";
+    alert("Erro: " + e.message);
+  }
 }
 
 // ===== SEARCH =====

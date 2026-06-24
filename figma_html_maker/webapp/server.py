@@ -27,7 +27,9 @@ load_dotenv()
 
 from typing import List, Optional
 
-from fastapi import FastAPI, UploadFile, File
+from html.parser import HTMLParser
+
+from fastapi import FastAPI, Form, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -296,6 +298,62 @@ def convert(req: ConvertRequest) -> JSONResponse:
         )
 
 
+# ---- HTML import helpers ----
+
+class _AdHTMLParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.meta: dict = {}
+        self.images: list = []
+
+    def handle_starttag(self, tag, attrs):
+        d = dict(attrs)
+        if tag == "meta":
+            name = d.get("name", "")
+            content = d.get("content", "")
+            if name in ("title", "desc", "message"):
+                self.meta[name] = content
+            elif name == "ad-size":
+                parts = content.split("x")
+                if len(parts) == 2:
+                    try:
+                        self.meta["width"] = int(parts[0])
+                        self.meta["height"] = int(parts[1])
+                        self.meta["format_label"] = content
+                    except ValueError:
+                        pass
+        elif tag == "img":
+            src = d.get("src", "")
+            if src and not src.startswith("data:"):
+                self.images.append(src)
+
+
+def _parse_html_ad(html: str) -> dict:
+    p = _AdHTMLParser()
+    p.feed(html)
+    return {
+        "title": p.meta.get("title", ""),
+        "desc": p.meta.get("desc", ""),
+        "message": p.meta.get("message", ""),
+        "format_label": p.meta.get("format_label", ""),
+        "width": p.meta.get("width", 0),
+        "height": p.meta.get("height", 0),
+        "images": p.images,
+    }
+
+
+def _update_meta_tag(html: str, name: str, value: str) -> str:
+    pattern = rf'<meta\s+name="{re.escape(name)}"\s+content="[^"]*"'
+    replacement = f'<meta name="{name}" content="{value}"'
+    if re.search(pattern, html):
+        return re.sub(pattern, replacement, html)
+    return html.replace("</head>", f'  <meta name="{name}" content="{value}">\n</head>', 1)
+
+
+def _replace_img_src(html: str, old_url: str, new_url: str) -> str:
+    return html.replace(f'src="{old_url}"', f'src="{new_url}"')
+
+
 # ---- Creative download ----
 
 @app.get("/api/creatives/{creative_id}/download")
@@ -404,6 +462,106 @@ async def upload_creative(campaign_id: int, file: UploadFile = File(...)) -> JSO
         thumbnail_url=preview_url if ctype == "image" else "",
         width=0,
         height=0,
+    )
+    db.touch_campaign(campaign_id)
+    return JSONResponse({"status": "ok", "creative": creative})
+
+
+# ---- HTML import ----
+
+@app.post("/api/campaigns/{campaign_id}/parse-html")
+async def parse_html_endpoint(campaign_id: int, file: UploadFile = File(...)) -> JSONResponse:
+    campaign = db.get_campaign(campaign_id)
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+    content = (await file.read()).decode("utf-8", errors="replace")
+    parsed = _parse_html_ad(content)
+    supabase_base = os.environ.get("SUPABASE_URL", "")
+    images_info = [
+        {"url": u, "in_supabase": bool(supabase_base and u.startswith(supabase_base))}
+        for u in parsed["images"]
+    ]
+    return JSONResponse({
+        "status": "ok",
+        "meta": {
+            "title": parsed["title"], "desc": parsed["desc"],
+            "message": parsed["message"], "format_label": parsed["format_label"],
+            "width": parsed["width"], "height": parsed["height"],
+        },
+        "images": images_info,
+        "filename": file.filename or "import.html",
+    })
+
+
+@app.post("/api/campaigns/{campaign_id}/import-html")
+async def import_html_endpoint(
+    campaign_id: int,
+    file: UploadFile = File(...),
+    title: str = Form(""),
+    desc: str = Form(""),
+    message: str = Form(""),
+    upload: bool = Form(True),
+) -> JSONResponse:
+    campaign = db.get_campaign(campaign_id)
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+
+    content = (await file.read()).decode("utf-8", errors="replace")
+    parsed = _parse_html_ad(content)
+    html = content
+
+    # Update meta tags with user-supplied values
+    for name, val in (("title", title), ("desc", desc), ("message", message)):
+        if val:
+            html = _update_meta_tag(html, name, val)
+
+    thumbnail_url = ""
+    supabase_base = os.environ.get("SUPABASE_URL", "")
+
+    if upload:
+        try:
+            uploader = SupabaseUploader(SupabaseConfig.from_env())
+            camp = campaign_slug(campaign["name"])
+            stem = re.sub(r"[^A-Za-z0-9_-]+", "_", Path(file.filename or "import").stem)
+            for i, img_url in enumerate(parsed["images"]):
+                if supabase_base and img_url.startswith(supabase_base):
+                    if not thumbnail_url:
+                        thumbnail_url = img_url
+                    continue
+                try:
+                    resp = _requests.get(img_url, timeout=30)
+                    if resp.ok:
+                        new_url = uploader.upload_png(
+                            f"{camp}/{stem}/img_{i}.png", resp.content
+                        )
+                        html = _replace_img_src(html, img_url, new_url)
+                        if not thumbnail_url:
+                            thumbnail_url = new_url
+                except Exception:  # noqa: BLE001
+                    pass
+        except RuntimeError:
+            pass
+
+    # Save HTML locally
+    fmt = parsed["format_label"] or "imported"
+    stem_name = re.sub(r"[^A-Za-z0-9_-]+", "_", Path(file.filename or "import").stem)
+    camp_seg = f"{campaign_slug(campaign['name'])}/" if campaign["name"] else ""
+    dest_dir = OUTPUT_DIR / f"{camp_seg}{stem_name}/{fmt}"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    html_path = dest_dir / "index.html"
+    html_path.write_text(html, encoding="utf-8")
+
+    creative = db.create_creative(
+        campaign_id=campaign_id,
+        type="html",
+        name=stem_name,
+        local_path=str(html_path),
+        supabase_url=thumbnail_url,
+        thumbnail_url=thumbnail_url,
+        width=parsed["width"],
+        height=parsed["height"],
+        format_label=fmt,
+        manifest_json="",
     )
     db.touch_campaign(campaign_id)
     return JSONResponse({"status": "ok", "creative": creative})
