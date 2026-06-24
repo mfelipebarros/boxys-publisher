@@ -444,7 +444,7 @@ textarea.form-input { resize: vertical; min-height: 72px; line-height: 1.5; }
   font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
   color: var(--muted); font-weight: 600;
 }
-.copies-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.copies-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .copy-card {
   background: var(--surface); border: 1.5px solid var(--line); border-radius: 10px;
   padding: 12px 14px; min-width: 200px; max-width: 260px; flex: none; cursor: pointer;
@@ -1080,8 +1080,15 @@ function updateCopyActionBar() {
   const count = state.selectedCopies.length;
   const typeLabel = state.selectionType === "landing_page" ? "landing page" : `criativo${count !== 1 ? "s" : ""}`;
 
+  const allSameType = (state.currentCampaign?.copies || []).filter(c => c.type === state.selectionType);
+  const allSelected = allSameType.length > 0 && allSameType.every(c => state.selectedCopies.some(s => s.id === c.id));
+  const selectAllBtn = (state.selectionType === "criativo" && !allSelected)
+    ? `<button class="btn-ghost" id="btn-select-all">Selecionar todos (${allSameType.length})</button>`
+    : "";
+
   const bar = el(`<div id="copy-action-bar" class="copy-action-bar">
     <span class="copy-action-label">${count} ${typeLabel} selecionado${count !== 1 ? "s" : ""}</span>
+    ${selectAllBtn}
     <button class="btn-ghost" id="btn-clear-selection">Limpar</button>
     <button class="btn-primary" id="btn-gerar-prompt">Gerar prompt →</button>
   </div>`);
@@ -1091,6 +1098,13 @@ function updateCopyActionBar() {
   document.getElementById("btn-clear-selection").addEventListener("click", () => {
     state.selectedCopies = [];
     state.selectionType = null;
+    renderCopiesRow(state.currentCampaign?.copies || []);
+    updateCopyActionBar();
+  });
+
+  const selAllEl = document.getElementById("btn-select-all");
+  if (selAllEl) selAllEl.addEventListener("click", () => {
+    state.selectedCopies = [...allSameType];
     renderCopiesRow(state.currentCampaign?.copies || []);
     updateCopyActionBar();
   });
@@ -1120,10 +1134,25 @@ async function gerarPrompt() {
 
   const output = pdata.prompt.replace("[COLAR AQUI O OUTPUT DO APP BOXYS]", formattedCopies);
 
+  // Try modern API first, then legacy execCommand
+  let copied = false;
   try {
     await navigator.clipboard.writeText(output);
+    copied = true;
+  } catch(_) {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = output;
+      ta.style.cssText = "position:fixed;top:-9999px;left:-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      copied = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch(_2) {}
+  }
+  if (copied) {
     showToast("Prompt copiado para a área de transferência!");
-  } catch(e) {
+  } else {
     openModal(`
       <div class="modal-header">
         <h2>Prompt gerado</h2>

@@ -274,7 +274,7 @@ _PROMPT_CRIATIVO = """\
 
 ---
 
-**Antes de começar:** peça ao usuário por referências visuais, o link oficial do empreendimento (para baixar fotos), o formato/dimensão desejado do criativo, e qualquer arquivo adicional relevante (logo da construtora, etc.). Só inicie a construção após receber esse material.
+**Antes de começar:** peça ao usuário por referências visuais, o link oficial do empreendimento (para baixar fotos), o formato desejado e qualquer arquivo adicional relevante (logo da construtora, etc.). Só inicie a construção após receber esse material.
 
 ---
 
@@ -289,16 +289,34 @@ _PROMPT_CRIATIVO = """\
 ## Regras Técnicas
 
 ### Auto-contenção
-- Todo CSS em `<style>` no `<head>`, todo JS em `<script>` antes do `</body>`
-- Sem arquivos externos de nenhum tipo (exceto bibliotecas Supabase, se necessário)
+- Todo CSS em `<style>` no `<head>` — sem arquivos externos, sem JS
 
-### Dimensões fixas
-- O HTML deve ter `width` e `height` fixos em pixels conforme o formato solicitado
-- `overflow: hidden` no container principal
-- Sem layout responsivo — o criativo deve ter dimensões exatas de pixel
+### Formato e dimensões
+Incluir o meta `ad-size` e usar `aspect-ratio` + `max-width` no container principal:
+
+| Formato | `max-width` | `aspect-ratio` | meta `ad-size` |
+|---|---|---|---|
+| Feed 1:1 | `1080px` | `1 / 1` | `1080x1080` |
+| Post 4:5 | `1080px` | `4 / 5` | `1080x1350` |
+| Stories / Reels 9:16 | `1080px` | `9 / 16` | `1080x1920` |
+| Banner 1.91:1 | `1200px` | `1200 / 628` | `1200x628` |
+
+```html
+<meta name="ad-size" content="[WxH]">
+```
+
+```css
+.container {
+  width: 100%;
+  max-width: [W]px;
+  aspect-ratio: [W] / [H];
+  height: auto;
+  overflow: hidden;
+}
+```
 
 ### Imagens externas
-Toda imagem referenciada por URL externa deve ser **baixada localmente** antes de usar:
+Baixar localmente antes de usar:
 
 ```bash
 curl -o imagem.jpg "https://url-da-imagem.com/foto.jpg"
@@ -306,20 +324,6 @@ base64 -w 0 imagem.jpg
 ```
 
 Inserir no HTML como `data:image/jpeg;base64,...`. Nunca referenciar URLs externas de imagens diretamente no HTML final.
-
-### Bibliotecas (carregar apenas se necessário)
-Criativos estáticos não precisam de nenhuma biblioteca. Incluir somente se o asset exigir:
-
-**GSAP (somente se o criativo tiver animação):**
-```html
-<script src="https://eckajutnclcvihnusoqn.supabase.co/storage/v1/object/public/Assets/Utilidades/Bibliotecas/gsap/gsap.min.js"></script>
-```
-
-**Swiper (somente se o criativo for um carrossel multi-slide):**
-```html
-<link rel="stylesheet" href="https://eckajutnclcvihnusoqn.supabase.co/storage/v1/object/public/Assets/Utilidades/Bibliotecas/swiper/swiper-bundle.min.css">
-<script src="https://eckajutnclcvihnusoqn.supabase.co/storage/v1/object/public/Assets/Utilidades/Bibliotecas/swiper/swiper-bundle.min.js"></script>
-```
 
 ---
 
@@ -341,14 +345,15 @@ Usar exatamente estes placeholders em todos os locais de contato e assinatura do
 
 ## Entrega
 
-Arquivo: `ad-[formato].html` (ex: `ad-feed.html`, `ad-stories.html`, `ad-carrossel.html`)
+Arquivo: `ad-[formato].html` (ex: `ad-feed.html`, `ad-stories.html`, `ad-banner.html`)
 
 Verificar antes de concluir:
-- [ ] Criativo renderiza exatamente no tamanho especificado em zoom 100%
-- [ ] `overflow: hidden` aplicado — nada extrapola as bordas
-- [ ] Nenhuma imagem quebrada (todas base64 ou URL do Supabase)
+- [ ] `meta name="ad-size"` presente com as dimensões corretas
+- [ ] `aspect-ratio` e `max-width` corretos para o formato
+- [ ] `overflow: hidden` no container principal
+- [ ] Nenhuma imagem referenciando URL externa
 - [ ] Link de WhatsApp aponta para `wa.me/5500000000000`
-- [ ] CSS e JS 100% embutidos no arquivo\
+- [ ] Sem JS\
 """
 
 
