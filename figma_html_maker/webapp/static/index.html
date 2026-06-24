@@ -515,6 +515,64 @@ textarea.form-input { resize: vertical; min-height: 72px; line-height: 1.5; }
 .copy-editor-form { max-width: 720px; display: flex; flex-direction: column; gap: 16px; padding-bottom: 48px; }
 .btn-danger { padding: 7px 14px; border-radius: 8px; border: 1px solid #e05; color: #e05; background: none; cursor: pointer; font-size: 13px; }
 .btn-danger:hover { background: rgba(238,0,85,.08); }
+
+/* Folder checkbox */
+.folder-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  z-index: 10;
+  accent-color: var(--accent);
+}
+
+/* Copy checkbox */
+.copy-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  z-index: 10;
+  accent-color: var(--accent);
+}
+.copy-checkbox:disabled { opacity: 0.3; cursor: not-allowed; }
+.copy-card.copy-selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+
+/* Copy action bar */
+.copy-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-top: 8px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.copy-action-label { flex: 1; color: var(--fg); font-weight: 500; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--fg);
+  color: var(--bg);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity .2s, transform .2s;
+  z-index: 9999;
+  pointer-events: none;
+}
+.toast.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 </head>
@@ -569,6 +627,9 @@ const state = {
   panelOpen: false,
   pendingCopyId: null,
   newCopyType: "criativo",
+  selectedCampaigns: [],
+  selectedCopies: [],
+  selectionType: null,
 };
 
 // ===== UTILS =====
@@ -701,6 +762,7 @@ function makeFolderCard(campaign) {
   ).join("") || "";
 
   const card = el(`<div class="item-card" data-id="${campaign.id}">
+    <input type="checkbox" class="folder-checkbox" data-id="${campaign.id}" ${state.selectedCampaigns.includes(campaign.id) ? "checked" : ""}>
     <div class="item-preview folder-preview">
       <svg class="folder-svg" viewBox="0 0 56 56" fill="none">
         <rect x="2" y="14" width="52" height="36" rx="5" fill="#0FA47F" opacity=".18"/>
@@ -718,7 +780,18 @@ function makeFolderCard(campaign) {
 
   card.addEventListener("click", e => {
     if (e.target.classList.contains("item-menu")) return;
+    if (e.target.classList.contains("folder-checkbox")) return;
     navigate(`#/campaigns/${campaign.id}`);
+  });
+  card.querySelector(".folder-checkbox").addEventListener("click", e => {
+    e.stopPropagation();
+    const id = campaign.id;
+    if (state.selectedCampaigns.includes(id)) {
+      state.selectedCampaigns = state.selectedCampaigns.filter(x => x !== id);
+    } else {
+      state.selectedCampaigns.push(id);
+    }
+    e.target.checked = state.selectedCampaigns.includes(id);
   });
   card.querySelector(".item-menu").addEventListener("click", e => {
     e.stopPropagation();
@@ -917,13 +990,21 @@ function renderCopiesRow(copies) {
   section.style.display = "block";
   row.innerHTML = "";
   copies.forEach(cp => row.appendChild(makeCopyCard(cp)));
+  updateCopyActionBar();
   refreshCopyPanelSelect();
 }
 
 function makeCopyCard(cp) {
   const isPending = state.pendingCopyId === cp.id;
+  const isSelected = state.selectedCopies.some(c => c.id === cp.id);
+  const isBlocked = state.selectionType !== null && !isSelected && (
+    state.selectionType === "landing_page" ||
+    cp.type === "landing_page" ||
+    (state.selectionType === "criativo" && cp.type === "landing_page")
+  );
   const typeLabel = cp.type === "landing_page" ? "Landing page" : "Criativo";
-  const card = el(`<div class="copy-card${isPending ? " pending" : ""}" data-copy-id="${cp.id}">
+  const card = el(`<div class="copy-card${isPending ? " pending" : ""}${isSelected ? " copy-selected" : ""}" data-copy-id="${cp.id}">
+    <input type="checkbox" class="copy-checkbox" ${isSelected ? "checked" : ""} ${isBlocked ? "disabled" : ""}>
     <div class="copy-card-type">${typeLabel}</div>
     <div class="copy-card-name">${esc(cp.name)}</div>
     ${cp.type !== "landing_page" && cp.title ? `<div class="copy-card-field"><b>T:</b> ${esc(cp.title)}</div>` : ""}
@@ -936,7 +1017,14 @@ function makeCopyCard(cp) {
 
   card.addEventListener("click", e => {
     if (e.target.classList.contains("copy-card-menu")) return;
+    if (e.target.classList.contains("copy-checkbox")) return;
     window.location.hash = `#/campaigns/${state.currentCampaign?.id}/copies/${cp.id}`;
+  });
+
+  card.querySelector(".copy-checkbox").addEventListener("click", e => {
+    e.stopPropagation();
+    if (!e.target.disabled) toggleCopySelection(cp);
+    e.target.checked = state.selectedCopies.some(c => c.id === cp.id);
   });
 
   card.querySelector(".copy-card-menu").addEventListener("click", e => {
@@ -956,6 +1044,127 @@ function setPendingCopy(cp) {
   const copies = state.currentCampaign?.copies || [];
   renderCopiesRow(copies);
   refreshCopyPanelSelect();
+}
+
+function toggleCopySelection(cp) {
+  const alreadySelected = state.selectedCopies.some(c => c.id === cp.id);
+
+  if (alreadySelected) {
+    state.selectedCopies = state.selectedCopies.filter(c => c.id !== cp.id);
+    if (state.selectedCopies.length === 0) state.selectionType = null;
+  } else {
+    if (cp.type === "landing_page") {
+      state.selectedCopies = [cp];
+      state.selectionType = "landing_page";
+    } else {
+      if (state.selectionType === "landing_page") return;
+      state.selectedCopies.push(cp);
+      state.selectionType = "criativo";
+    }
+  }
+
+  const copies = state.currentCampaign?.copies || [];
+  renderCopiesRow(copies);
+  updateCopyActionBar();
+}
+
+function updateCopyActionBar() {
+  const existing = document.getElementById("copy-action-bar");
+  if (existing) existing.remove();
+
+  if (!state.selectedCopies.length) return;
+
+  const section = document.getElementById("copies-section");
+  if (!section) return;
+
+  const count = state.selectedCopies.length;
+  const typeLabel = state.selectionType === "landing_page" ? "landing page" : `criativo${count !== 1 ? "s" : ""}`;
+
+  const bar = el(`<div id="copy-action-bar" class="copy-action-bar">
+    <span class="copy-action-label">${count} ${typeLabel} selecionado${count !== 1 ? "s" : ""}</span>
+    <button class="btn-ghost" id="btn-clear-selection">Limpar</button>
+    <button class="btn-primary" id="btn-gerar-prompt">Gerar prompt →</button>
+  </div>`);
+
+  section.appendChild(bar);
+
+  document.getElementById("btn-clear-selection").addEventListener("click", () => {
+    state.selectedCopies = [];
+    state.selectionType = null;
+    renderCopiesRow(state.currentCampaign?.copies || []);
+    updateCopyActionBar();
+  });
+
+  document.getElementById("btn-gerar-prompt").addEventListener("click", () => gerarPrompt());
+}
+
+async function gerarPrompt() {
+  const copies = state.selectedCopies;
+  if (!copies.length) return;
+
+  const type = state.selectionType;
+  const promptType = type === "landing_page" ? "lp" : "criativo";
+
+  const pdata = await api("GET", `/api/prompts/${promptType}`);
+  if (pdata.status !== "ok") { alert("Erro ao carregar prompt: " + pdata.error); return; }
+
+  const formattedCopies = copies.map(cp => {
+    const contentMd = cp.content_html ? htmlToMarkdown(cp.content_html) : "";
+    const contentPlain = cp.content || "";
+    const contentFinal = contentMd && contentMd !== "" ? contentMd : contentPlain;
+
+    let block = `ID: ${cp.name}`;
+    if (contentFinal) block += `\nConteúdo:\n${contentFinal}`;
+    return block;
+  }).join("\n\n---\n\n");
+
+  const output = pdata.prompt.replace("[COLAR AQUI O OUTPUT DO APP BOXYS]", formattedCopies);
+
+  try {
+    await navigator.clipboard.writeText(output);
+    showToast("Prompt copiado para a área de transferência!");
+  } catch(e) {
+    openModal(`
+      <div class="modal-header">
+        <h2>Prompt gerado</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <textarea class="form-input" style="min-height:300px;font-family:var(--mono);font-size:11px" readonly>${esc(output)}</textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeModal()">Fechar</button>
+      </div>`, "modal-md");
+  }
+}
+
+function htmlToMarkdown(html) {
+  if (!html) return "";
+  return html
+    .replace(/<strong>([\s\S]*?)<\/strong>/gi, '**$1**')
+    .replace(/<b>([\s\S]*?)<\/b>/gi, '**$1**')
+    .replace(/<em>([\s\S]*?)<\/em>/gi, '*$1*')
+    .replace(/<i>([\s\S]*?)<\/i>/gi, '*$1*')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<li>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function showToast(msg) {
+  const existing = document.getElementById("toast");
+  if (existing) existing.remove();
+  const t = el(`<div id="toast" class="toast">${esc(msg)}</div>`);
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("toast-show"), 10);
+  setTimeout(() => { t.classList.remove("toast-show"); setTimeout(() => t.remove(), 300); }, 2500);
 }
 
 function refreshCopyPanelSelect() {

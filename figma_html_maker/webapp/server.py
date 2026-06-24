@@ -158,6 +158,25 @@ def health() -> dict:
     }
 
 
+# ---- Prompts ----
+
+@app.get("/api/prompts/{prompt_type}")
+def get_prompt(prompt_type: str) -> JSONResponse:
+    """Return the prompt template for 'lp' or 'criativo'."""
+    prompts_path = Path(__file__).parent.parent.parent / "prompts.md"
+    if not prompts_path.exists():
+        return JSONResponse({"status": "error", "error": "prompts.md not found"}, status_code=404)
+    text = prompts_path.read_text(encoding="utf-8")
+    import re as _re
+    if prompt_type == "lp":
+        m = _re.search(r'(?s)(# Prompt — Landing Page.*?)(?=^# |\Z)', text, _re.MULTILINE)
+    else:
+        m = _re.search(r'(?s)(# Prompt — Ad / Post.*?)(?=^# |\Z)', text, _re.MULTILINE)
+    if not m:
+        return JSONResponse({"status": "error", "error": "Prompt não encontrado"}, status_code=404)
+    return JSONResponse({"status": "ok", "prompt": m.group(1).strip()})
+
+
 # ---- Figma browse ----
 
 @app.post("/api/browse")
