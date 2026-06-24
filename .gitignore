@@ -1,0 +1,28 @@
+# Credenciais
+.env
+*.env
+!.env.example
+
+# Dados gerados
+output/
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Claude Code
+.claude/
+
+# macOS
+.DS_Store
+
+# Cópia antiga
+figma-html-maker-pkg 2/

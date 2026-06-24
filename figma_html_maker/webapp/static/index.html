@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boxys · Campanhas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --canvas: #EEF0F4;
+  --surface: #FFFFFF;
+  --ink: #1B1E2E;
+  --ink-soft: #2A2E44;
+  --accent: #0FA47F;
+  --accent-deep: #0B7D60;
+  --accent-bg: #E8F5F0;
+  --amber: #E8A13A;
+  --red: #D9544D;
+  --line: #DCE0E8;
+  --muted: #6B7185;
+  --mono: 'JetBrains Mono', monospace;
+  --ui: 'Space Grotesk', system-ui, sans-serif;
+  --sidebar-w: 210px;
+  --topbar-h: 52px;
+  --radius: 12px;
+  --shadow: 0 2px 8px rgba(27,30,46,.08), 0 0 0 1px var(--line);
+}
+*, *::before, *::after { margin: 0; box-sizing: border-box; }
+body { font-family: var(--ui); background: var(--canvas); color: var(--ink);
+  -webkit-font-smoothing: antialiased; line-height: 1.45; }
+
+/* ---- Shell ---- */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h);
+  background: var(--ink); display: flex; align-items: center; gap: 16px;
+  padding: 0 20px; z-index: 100; border-bottom: 1px solid #2E3450;
+}
+.brand { display: flex; align-items: baseline; gap: 9px; flex: none; }
+.brand b { font-weight: 700; font-size: 18px; color: #fff; letter-spacing: -.01em; }
+.brand span { font-size: 11px; color: #7A809B; font-family: var(--mono); }
+#topbar-search {
+  flex: 1; max-width: 360px; background: #23273D; border: 1px solid #343A57;
+  border-radius: 8px; padding: 7px 12px; font-family: var(--mono); font-size: 13px;
+  color: #E8EAF2; outline: none; transition: border-color .15s;
+}
+#topbar-search::placeholder { color: #5A607B; }
+#topbar-search:focus { border-color: var(--accent); }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.status-chip {
+  display: flex; align-items: center; gap: 7px; font-size: 11px;
+  font-family: var(--mono); color: #9AA0BC; padding: 6px 10px; border-radius: 7px;
+  background: #1F2336; border: 1px solid #2E3450; white-space: nowrap;
+}
+.dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.dot.on { background: var(--accent); box-shadow: 0 0 0 3px rgba(15,164,127,.2); }
+.dot.off { background: var(--amber); }
+.btn-primary {
+  background: var(--accent); color: #062018; border: none; font-family: var(--ui);
+  font-weight: 700; font-size: 13px; padding: 8px 14px; border-radius: 8px;
+  cursor: pointer; white-space: nowrap; transition: background .15s;
+}
+.btn-primary:hover { background: #12B88E; }
+.btn-ghost {
+  background: transparent; color: var(--accent); border: 1.5px solid var(--accent);
+  font-family: var(--ui); font-weight: 600; font-size: 12px; padding: 6px 12px;
+  border-radius: 7px; cursor: pointer; white-space: nowrap; transition: all .15s;
+}
+.btn-ghost:hover { background: var(--accent); color: #062018; }
+
+#layout { display: flex; padding-top: var(--topbar-h); min-height: 100vh; }
+
+#sidebar {
+  width: var(--sidebar-w); flex: none; background: var(--surface);
+  border-right: 1px solid var(--line); position: fixed; top: var(--topbar-h);
+  bottom: 0; overflow-y: auto; padding: 16px 0;
+}
+.sidebar-section { padding: 0 14px; margin-bottom: 8px; }
+.sidebar-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--muted); font-weight: 600; padding: 4px 8px 8px;
+}
+.sidebar-item {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+  border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+  color: var(--ink-soft); transition: all .12s; text-decoration: none;
+  overflow: hidden;
+}
+.sidebar-item:hover { background: var(--canvas); }
+.sidebar-item.active { background: var(--accent-bg); color: var(--accent-deep); }
+.sidebar-item .si-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-item .si-count {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  background: var(--canvas); padding: 2px 6px; border-radius: 10px; flex: none;
+}
+.sidebar-item.active .si-count { background: rgba(15,164,127,.15); color: var(--accent-deep); }
+.sidebar-divider { height: 1px; background: var(--line); margin: 8px 14px; }
+
+#main {
+  flex: 1; margin-left: var(--sidebar-w); min-width: 0; padding: 32px 36px 60px;
+}
+
+/* ---- Grid ---- */
+.view-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.view-header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.view-header .count { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: 10px; }
+.header-actions { display: flex; gap: 10px; }
+
+.breadcrumb {
+  display: flex; align-items: center; gap: 6px; font-size: 13px;
+  color: var(--muted); margin-bottom: 20px;
+}
+.breadcrumb a { color: var(--accent-deep); text-decoration: none; font-weight: 500; }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb .sep { color: var(--line); font-size: 16px; }
+
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+/* ---- Item cards ---- */
+.item-card {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  cursor: pointer; transition: box-shadow .15s, transform .1s;
+  position: relative; overflow: visible;
+}
+.item-card:hover { box-shadow: 0 6px 20px rgba(27,30,46,.13), 0 0 0 1px var(--accent); transform: translateY(-2px); }
+
+.item-preview {
+  border-radius: var(--radius) var(--radius) 0 0; overflow: hidden;
+  aspect-ratio: 1 / 0.85; background: var(--canvas); display: flex;
+  align-items: center; justify-content: center; position: relative;
+}
+.item-preview img { width: 100%; height: 100%; object-fit: cover; }
+.item-label {
+  padding: 9px 11px 10px; border-top: 1px solid var(--line);
+}
+.item-name {
+  font-size: 12px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.item-meta {
+  font-size: 10px; color: var(--muted); font-family: var(--mono); margin-top: 2px;
+}
+.item-menu {
+  position: absolute; top: 6px; right: 6px; background: rgba(255,255,255,.92);
+  border: 1px solid var(--line); border-radius: 6px; width: 24px; height: 24px;
+  display: none; align-items: center; justify-content: center; cursor: pointer;
+  font-size: 14px; color: var(--muted); transition: all .12s; z-index: 2;
+  backdrop-filter: blur(4px);
+}
+.item-card:hover .item-menu { display: flex; }
+.item-menu:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+/* Folder icon */
+.folder-preview { background: var(--accent-bg); }
+.folder-svg { width: 56px; height: 56px; }
+.folder-thumbs {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 3px;
+}
+.folder-thumb {
+  width: 32px; height: 22px; border-radius: 3px; object-fit: cover;
+  border: 1.5px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15);
+}
+.folder-thumb-ph {
+  width: 32px; height: 22px; border-radius: 3px; background: var(--accent);
+  opacity: .35;
+}
+
+/* HTML file preview */
+.html-preview-bg {
+  width: 100%; height: 100%; display: flex; align-items: center;
+  justify-content: center; flex-direction: column; gap: 4px;
+  background: linear-gradient(135deg, #1B1E2E 0%, #0FA47F 100%);
+}
+.html-badge {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  color: rgba(255,255,255,.7); background: rgba(0,0,0,.3); padding: 3px 7px;
+  border-radius: 5px;
+}
+.html-size { font-size: 11px; color: rgba(255,255,255,.5); font-family: var(--mono); }
+
+/* Image/video placeholders */
+.media-icon { font-size: 32px; opacity: .4; }
+
+/* ---- Campaign name editable ---- */
+.campaign-title-wrap { display: flex; align-items: center; gap: 10px; }
+.campaign-title {
+  font-size: 22px; font-weight: 700; letter-spacing: -.02em;
+  border: 2px solid transparent; border-radius: 7px; padding: 2px 6px;
+  outline: none; background: transparent; color: var(--ink); cursor: text;
+  transition: border-color .15s;
+}
+.campaign-title:focus { border-color: var(--accent); background: var(--surface); }
+
+/* ---- Figma panel ---- */
+#figma-panel {
+  background: var(--ink); border-radius: 14px; margin-bottom: 24px; overflow: hidden;
+  transition: all .2s;
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; cursor: pointer;
+}
+.panel-header h3 { font-size: 14px; font-weight: 600; color: #fff; }
+.panel-toggle {
+  background: transparent; border: none; color: #9AA0BC; cursor: pointer;
+  font-size: 18px; line-height: 1; transition: transform .2s;
+}
+.panel-toggle.open { transform: rotate(180deg); }
+.panel-body { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+.panel-field { display: flex; flex-direction: column; gap: 6px; }
+.panel-field label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; color: #9AA0BC; font-weight: 600; }
+.panel-input {
+  font-family: var(--mono); font-size: 13px; color: #F4F5FB; background: #23273D;
+  border: 1px solid #343A57; border-radius: 8px; padding: 9px 12px; outline: none;
+  transition: border-color .15s; width: 100%;
+}
+.panel-input:focus { border-color: var(--accent); }
+.panel-row { display: flex; gap: 12px; }
+.panel-row > * { flex: 1; }
+
+.panel-browse-btn {
+  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--accent);
+  background: transparent; border: 1px solid var(--accent); border-radius: 7px;
+  padding: 6px 12px; cursor: pointer; transition: all .15s; align-self: flex-start;
+}
+.panel-browse-btn:hover { background: var(--accent); color: #062018; }
+.panel-browse-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.frame-picker { display: flex; flex-direction: column; gap: 10px; }
+.picker-head { display: flex; align-items: center; justify-content: space-between; }
+.picker-head span { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: #9AA0BC; font-weight: 600; }
+.picker-head button { font-size: 11px; color: #9AA0BC; background: transparent; border: none; cursor: pointer; text-decoration: underline; }
+.frame-grid { display: flex; flex-wrap: wrap; gap: 8px; max-height: 360px; overflow-y: auto; padding-right: 2px; }
+.frame-card { width: calc(50% - 4px); border: 2px solid #343A57; border-radius: 8px; overflow: hidden; cursor: pointer; background: #1A1E33; transition: border-color .15s; position: relative; }
+.frame-card.selected { border-color: var(--accent); background: #0d2620; }
+.frame-card .thumb-wrap { width: 100%; overflow: hidden; background: #23273D; }
+.frame-card .thumb { width: 100%; height: auto; display: block; }
+.frame-card .thumb-placeholder { display: flex; align-items: center; justify-content: center; color: #4A5070; font-size: 11px; padding: 20px 0; }
+.frame-card .finfo { padding: 6px 8px; }
+.frame-card .fname { font-size: 11px; font-weight: 600; color: #E8EAF2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frame-card .fmeta { font-size: 10px; color: #6B7185; font-family: var(--mono); margin-top: 1px; }
+.frame-card .fcheck { position: absolute; top: 5px; right: 5px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); display: none; align-items: center; justify-content: center; color: #fff; font-size: 10px; font-weight: 700; }
+.frame-card.selected .fcheck { display: flex; }
+.picker-loading { text-align: center; color: #9AA0BC; font-size: 13px; padding: 18px 0; width: 100%; }
+
+.panel-run {
+  background: var(--accent); color: #062018; border: none; font-family: var(--ui);
+  font-weight: 700; font-size: 14px; padding: 12px; border-radius: 9px;
+  cursor: pointer; transition: background .15s;
+}
+.panel-run:hover { background: #12B88E; }
+.panel-run:disabled { background: #39405C; color: #7A809B; cursor: not-allowed; }
+
+/* pipeline tracker */
+.pipe { display: flex; align-items: center; padding: 14px 20px; background: #FAFBFC; }
+.step { display: flex; align-items: center; gap: 7px; flex: none; }
+.step .mark { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-size: 10px; font-weight: 700; color: var(--muted); background: var(--surface); transition: all .25s; }
+.step .name { font-size: 11px; color: var(--muted); font-weight: 500; transition: color .25s; white-space: nowrap; }
+.step.done .mark { border-color: var(--accent); background: var(--accent); color: #fff; }
+.step.done .name { color: var(--ink); }
+.step.active .mark { border-color: var(--amber); color: var(--amber); animation: pulse 1s infinite; }
+.step.active .name { color: var(--ink-soft); }
+.step.err .mark { border-color: var(--red); background: var(--red); color: #fff; }
+.step.err .name { color: var(--red); }
+@keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(232,161,58,.4)}50%{box-shadow:0 0 0 5px rgba(232,161,58,0)} }
+.link { flex: 1; height: 2px; background: var(--line); margin: 0 8px; border-radius: 2px; transition: background .25s; min-width: 8px; }
+.link.done { background: var(--accent); }
+
+.conv-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+.conv-top { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.conv-top .id { font-weight: 600; font-size: 14px; }
+.conv-top .fmt { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--canvas); padding: 2px 7px; border-radius: 5px; }
+.conv-top .nid { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: auto; }
+.err-box { margin: 12px 16px; padding: 12px 14px; background: #FCEEED; border: 1px solid #F3C9C5; border-radius: 8px; color: #8E2F29; font-size: 13px; }
+.warn-notice { margin: 0 16px 0; padding: 9px 14px; font-size: 12px; background: #FFF7E8; border-top: 1px solid #F0DBB0; color: #8A6516; }
+.conv-success { padding: 12px 16px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--accent-deep); }
+.conv-preview-url { font-family: var(--mono); font-size: 11px; }
+.conv-results-area { margin-top: 12px; }
+
+/* ---- Empty state ---- */
+.empty-state {
+  border: 2px dashed var(--line); border-radius: 16px; padding: 54px 30px;
+  text-align: center; color: var(--muted); background: var(--surface);
+  grid-column: 1 / -1;
+}
+.empty-state b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 6px; font-weight: 600; }
+.empty-state span { font-size: 13px; }
+
+/* ---- Modals ---- */
+#modal-overlay {
+  position: fixed; inset: 0; background: rgba(27,30,46,.55);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; padding: 20px; backdrop-filter: blur(2px);
+}
+#modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border-radius: 16px; box-shadow: 0 24px 64px rgba(27,30,46,.25);
+  width: 100%; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column;
+}
+.modal-sm { max-width: 420px; }
+.modal-md { max-width: 560px; }
+.modal-lg { max-width: 760px; }
+.modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h2 { font-size: 17px; font-weight: 700; }
+.modal-close { background: transparent; border: none; cursor: pointer; color: var(--muted); font-size: 22px; line-height: 1; transition: color .12s; }
+.modal-close:hover { color: var(--ink); }
+.modal-body { padding: 20px 24px; flex: 1; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 10px; }
+
+.form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.form-field:last-child { margin-bottom: 0; }
+.form-field label { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); font-weight: 600; }
+.form-input {
+  font-family: var(--ui); font-size: 13px; color: var(--ink); background: var(--canvas);
+  border: 1.5px solid var(--line); border-radius: 8px; padding: 9px 12px; outline: none;
+  transition: border-color .15s; width: 100%;
+}
+.form-input:focus { border-color: var(--accent); background: #fff; }
+textarea.form-input { resize: vertical; min-height: 72px; line-height: 1.5; }
+
+/* seg control */
+.seg { display: flex; background: var(--canvas); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; font-family: var(--ui); font-size: 13px; font-weight: 500; color: var(--muted); background: transparent; border: none; border-radius: 7px; padding: 8px; cursor: pointer; transition: all .15s; }
+.seg button.on { background: var(--accent); color: #062018; font-weight: 700; }
+
+/* ZIP modal */
+.zip-select-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px,1fr)); gap: 8px; margin-top: 12px; max-height: 220px; overflow-y: auto; }
+.zip-item { border: 2px solid var(--line); border-radius: 8px; cursor: pointer; overflow: hidden; transition: border-color .15s; }
+.zip-item.selected { border-color: var(--accent); }
+.zip-item-preview { aspect-ratio: 1; background: var(--canvas); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.zip-item-preview img { width: 100%; height: 100%; object-fit: cover; }
+.zip-item-name { padding: 4px 6px; font-size: 10px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.zip-order-list { margin-top: 12px; border: 1.5px solid var(--line); border-radius: 10px; overflow: hidden; }
+.zip-order-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  background: var(--surface); border-bottom: 1px solid var(--line); cursor: grab;
+  transition: background .12s;
+}
+.zip-order-item:last-child { border-bottom: none; }
+.zip-order-item.dragging { opacity: .4; }
+.zip-order-item.drag-over { background: var(--accent-bg); }
+.drag-handle { color: var(--muted); font-size: 16px; cursor: grab; flex: none; }
+.zip-order-thumb { width: 36px; height: 26px; border-radius: 4px; object-fit: cover; background: var(--canvas); flex: none; }
+.zip-order-name { flex: 1; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zip-remove { background: transparent; border: none; cursor: pointer; color: var(--muted); font-size: 16px; transition: color .12s; }
+.zip-remove:hover { color: var(--red); }
+
+/* Carousel modal */
+.carousel-items-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.carousel-list-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--canvas); border-radius: 8px; }
+.carousel-list-thumb { width: 40px; height: 28px; border-radius: 4px; object-fit: cover; background: var(--line); flex: none; }
+.carousel-list-name { flex: 1; font-size: 13px; font-weight: 500; }
+
+/* Preview modal */
+.preview-modal-wrap { display: flex; align-items: center; justify-content: center; min-height: 200px; padding: 10px 0; }
+.preview-stage-wrap .stage { position: relative; transform-origin: top left; }
+.preview-stage-wrap .lyr { position: absolute; overflow: hidden; }
+.preview-stage-wrap .lyr.txt[contenteditable="true"] { outline: 1px dashed rgba(15,164,127,.6); outline-offset: 1px; cursor: text; border-radius: 2px; }
+
+/* Context menu */
+.ctx-menu {
+  position: fixed; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(27,30,46,.18); z-index: 300;
+  min-width: 160px; overflow: hidden;
+}
+.ctx-item { padding: 9px 16px; font-size: 13px; cursor: pointer; transition: background .1s; color: var(--ink); }
+.ctx-item:hover { background: var(--canvas); }
+.ctx-item.danger { color: var(--red); }
+.ctx-item.danger:hover { background: #FCEEED; }
+
+/* Draft badge */
+.draft-badge {
+  position: absolute; top: 6px; left: 6px; background: rgba(232,161,58,.92);
+  color: #7a4800; font-size: 9px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 4px;
+  font-family: var(--mono); backdrop-filter: blur(2px); z-index: 1;
+}
+.published-badge {
+  position: absolute; top: 6px; left: 6px; background: rgba(15,164,127,.85);
+  color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 4px;
+  font-family: var(--mono); backdrop-filter: blur(2px); z-index: 1;
+}
+
+/* Metatags form inside conversion card */
+.meta-form {
+  padding: 14px 16px; border-top: 1px solid var(--line); background: #FAFBFC;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.meta-form-label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--muted); font-weight: 600; margin-bottom: -4px;
+}
+.meta-form input, .meta-form textarea {
+  font-family: var(--ui); font-size: 13px; color: var(--ink); background: #fff;
+  border: 1.5px solid var(--line); border-radius: 7px; padding: 7px 10px;
+  width: 100%; outline: none; transition: border-color .15s;
+}
+.meta-form input:focus, .meta-form textarea:focus { border-color: var(--accent); }
+.meta-form textarea { resize: vertical; min-height: 52px; line-height: 1.5; }
+.publish-btn {
+  background: var(--accent); color: #062018; border: none; font-family: var(--ui);
+  font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 8px;
+  cursor: pointer; transition: background .15s; align-self: flex-start;
+}
+.publish-btn:hover { background: #12B88E; }
+.publish-btn:disabled { background: #39405C; color: #7A809B; cursor: not-allowed; }
+.published-bar {
+  padding: 10px 16px; background: #E8F5F0; border-top: 1px solid #A3D9C9;
+  font-size: 13px; color: var(--accent-deep); font-weight: 500;
+  display: flex; align-items: center; gap: 10px;
+}
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--line); border-radius: 10px; padding: 24px;
+  text-align: center; cursor: pointer; transition: all .15s; color: var(--muted);
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: var(--accent-bg); color: var(--accent-deep); }
+.upload-zone input { display: none; }
+</style>
+</head>
+<body>
+
+<nav id="topbar">
+  <div class="brand"><b>Boxys</b><span>figma → html</span></div>
+  <input id="topbar-search" type="search" placeholder="Buscar campanhas e criativos…">
+  <div class="topbar-right">
+    <div class="status-chip" id="cfg">
+      <span class="dot off"></span><span id="cfgtext">Verificando…</span>
+    </div>
+    <button class="btn-primary" id="btn-new-campaign">+ Nova campanha</button>
+  </div>
+</nav>
+
+<div id="layout">
+  <aside id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Navegação</div>
+      <a class="sidebar-item" href="#/" id="sb-all">
+        <span class="si-name">Todas as campanhas</span>
+      </a>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Campanhas</div>
+      <div id="sb-campaigns"></div>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu" class="ctx-menu" style="display:none"></div>
+
+<!-- Modal overlay -->
+<div id="modal-overlay">
+  <div id="modal-box"></div>
+</div>
+
+<script>
+// ===== CONSTANTS =====
+const STAGES = ["Figma","Normalizar","Exportar","Supabase","HTML"];
+
+// ===== STATE =====
+const state = {
+  campaigns: [],
+  currentCampaign: null,
+  backendOk: true,
+  selectedFrames: {},
+  panelOpen: false,
+};
+
+// ===== UTILS =====
+function el(html) {
+  const t = document.createElement("template");
+  t.innerHTML = html.trim();
+  return t.content.firstChild;
+}
+
+function esc(s) {
+  return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: {} };
+  if (body) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+function navigate(hash) { window.location.hash = hash; }
+
+// ===== HEALTH =====
+async function checkHealth() {
+  try {
+    const h = await api("GET", "/api/health");
+    const all = h.figma_token && h.supabase_url && h.supabase_key;
+    state.backendOk = true;
+    document.querySelector("#cfg .dot").className = "dot " + (all ? "on" : "off");
+    document.getElementById("cfgtext").innerHTML = all
+      ? `bucket <b>${esc(h.bucket)}</b>` : "Faltam credenciais";
+  } catch(e) {
+    state.backendOk = false;
+    document.getElementById("cfgtext").textContent = "Backend offline";
+  }
+}
+
+// ===== CAMPAIGNS API =====
+async function loadCampaigns() {
+  try {
+    const data = await api("GET", "/api/campaigns");
+    state.campaigns = data.campaigns || [];
+    renderSidebar();
+  } catch(e) {}
+}
+
+async function loadCampaign(id) {
+  const data = await api("GET", `/api/campaigns/${id}`);
+  return data;
+}
+
+// ===== SIDEBAR =====
+function renderSidebar() {
+  const hash = window.location.hash || "#/";
+  const container = document.getElementById("sb-campaigns");
+  const allItem = document.getElementById("sb-all");
+  allItem.className = "sidebar-item" + (hash === "#/" ? " active" : "");
+
+  container.innerHTML = "";
+  (state.campaigns || []).forEach(c => {
+    const active = hash === `#/campaigns/${c.id}`;
+    const item = el(`<a class="sidebar-item${active ? " active" : ""}" href="#/campaigns/${c.id}">
+      <span class="si-name">${esc(c.name)}</span>
+      <span class="si-count">${c.creative_count || 0}</span>
+    </a>`);
+    container.appendChild(item);
+  });
+}
+
+// ===== ROUTER =====
+function route() {
+  const hash = window.location.hash || "#/";
+  renderSidebar();
+  if (hash === "#/") {
+    renderHome();
+  } else {
+    const m = hash.match(/^#\/campaigns\/(\d+)/);
+    if (m) renderCampaign(parseInt(m[1]));
+    else renderHome();
+  }
+}
+
+// ===== HOME VIEW =====
+async function renderHome() {
+  state.currentCampaign = null;
+  document.title = "Boxys · Campanhas";
+  const main = document.getElementById("main");
+
+  main.innerHTML = `
+    <div class="view-header">
+      <div><h1>Campanhas<span class="count" id="camp-count"></span></h1></div>
+      <div class="header-actions">
+        <button class="btn-primary" onclick="showCreateCampaignModal()">+ Nova campanha</button>
+      </div>
+    </div>
+    <div class="item-grid" id="home-grid">
+      <div style="grid-column:1/-1;padding:32px;text-align:center;color:var(--muted)">Carregando…</div>
+    </div>`;
+
+  await loadCampaigns();
+  const grid = document.getElementById("home-grid");
+  if (!grid) return;
+
+  const filtered = filterItems(state.campaigns, "name");
+  document.getElementById("camp-count").textContent = ` · ${filtered.length}`;
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state"><b>Nenhuma campanha ainda</b><span>Clique em "Nova campanha" para começar.</span></div>`;
+    return;
+  }
+
+  grid.innerHTML = "";
+  filtered.forEach(c => grid.appendChild(makeFolderCard(c)));
+}
+
+function makeFolderCard(campaign) {
+  const thumbs = campaign.preview_thumbs || [];
+  const thumbsHtml = thumbs.slice(0,3).map(u =>
+    `<img class="folder-thumb" src="${esc(u)}" alt="">`
+  ).join("") || "";
+
+  const card = el(`<div class="item-card" data-id="${campaign.id}">
+    <div class="item-preview folder-preview">
+      <svg class="folder-svg" viewBox="0 0 56 56" fill="none">
+        <rect x="2" y="14" width="52" height="36" rx="5" fill="#0FA47F" opacity=".18"/>
+        <path d="M2 20a5 5 0 0 1 5-5h14l4 5H49a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V20Z" fill="#0FA47F" opacity=".35"/>
+        <path d="M2 22a5 5 0 0 1 5-5h14l4 5H49a5 5 0 0 1 5 5v14a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V22Z" fill="#0FA47F"/>
+      </svg>
+      <div class="folder-thumbs">${thumbsHtml}</div>
+    </div>
+    <div class="item-label">
+      <div class="item-name">${esc(campaign.name)}</div>
+      <div class="item-meta">${campaign.creative_count || 0} criativo${campaign.creative_count !== 1 ? "s" : ""}</div>
+    </div>
+    <button class="item-menu">⋯</button>
+  </div>`);
+
+  card.addEventListener("click", e => {
+    if (e.target.classList.contains("item-menu")) return;
+    navigate(`#/campaigns/${campaign.id}`);
+  });
+  card.querySelector(".item-menu").addEventListener("click", e => {
+    e.stopPropagation();
+    showCtxMenu(e, [
+      { label: "Renomear", action: () => renameCampaign(campaign) },
+      { label: "Excluir", danger: true, action: () => deleteCampaign(campaign) },
+    ]);
+  });
+  return card;
+}
+
+// ===== CAMPAIGN VIEW =====
+async function renderCampaign(id) {
+  document.title = "Boxys · Carregando…";
+  const main = document.getElementById("main");
+  main.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted)">Carregando campanha…</div>`;
+
+  let data;
+  try {
+    data = await loadCampaign(id);
+  } catch(e) {
+    main.innerHTML = `<div style="padding:40px;color:var(--red)">Erro ao carregar campanha.</div>`;
+    return;
+  }
+
+  if (data.status !== "ok") {
+    navigate("#/"); return;
+  }
+
+  const { campaign, creatives, carousels } = data;
+  state.currentCampaign = { ...campaign, creatives, carousels };
+  document.title = `Boxys · ${campaign.name}`;
+  state.selectedFrames = {};
+
+  main.innerHTML = `
+    <div class="breadcrumb">
+      <a href="#/">Campanhas</a>
+      <span class="sep">›</span>
+      <span>${esc(campaign.name)}</span>
+    </div>
+
+    <div class="view-header">
+      <div class="campaign-title-wrap">
+        <span class="campaign-title" id="campaign-title" contenteditable="true"
+          spellcheck="false">${esc(campaign.name)}</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn-ghost" id="btn-figma-panel">+ Figma</button>
+        <button class="btn-ghost" id="btn-import">↑ Importar</button>
+        <button class="btn-ghost" id="btn-new-carousel">⊞ Carrossel</button>
+        <button class="btn-primary" id="btn-zip">↓ Exportar ZIP</button>
+      </div>
+    </div>
+
+    <!-- Figma panel -->
+    <div id="figma-panel" style="display:none">
+      <div class="panel-header" id="panel-header">
+        <h3>Adicionar do Figma</h3>
+        <button class="panel-toggle" id="panel-toggle">▲</button>
+      </div>
+      <div class="panel-body" id="panel-body">
+        <div class="panel-row">
+          <div class="panel-field" style="flex:3">
+            <label>File key ou URL do Figma</label>
+            <input class="panel-input" id="p-filekey" placeholder="cole a URL ou a chave" spellcheck="false">
+          </div>
+          <div class="panel-field" style="flex:1">
+            <label>Escala</label>
+            <select class="panel-input" id="p-scale">
+              <option value="1">1x</option>
+              <option value="2" selected>2x</option>
+              <option value="3">3x</option>
+            </select>
+          </div>
+        </div>
+        <button class="panel-browse-btn" id="p-browse">Buscar frames →</button>
+
+        <div class="frame-picker" id="p-picker" style="display:none">
+          <div class="picker-head">
+            <span id="p-picker-label">Frames</span>
+            <button id="p-clear-sel" type="button">limpar seleção</button>
+          </div>
+          <div class="frame-grid" id="p-frame-grid"></div>
+        </div>
+
+        <button class="panel-run" id="p-run" style="display:none">Converter selecionados</button>
+        <div class="conv-results-area" id="p-results"></div>
+      </div>
+    </div>
+
+    <!-- Hidden file input for upload -->
+    <input type="file" id="upload-input" multiple accept="image/*,video/*" style="display:none">
+
+    <!-- Content grid -->
+    <div class="item-grid" id="campaign-grid"></div>
+  `;
+
+  // Wire up campaign title editing
+  const titleEl = document.getElementById("campaign-title");
+  titleEl.addEventListener("blur", async () => {
+    const newName = titleEl.textContent.trim();
+    if (newName && newName !== campaign.name) {
+      await api("PUT", `/api/campaigns/${id}`, { name: newName });
+      campaign.name = newName;
+      document.title = `Boxys · ${newName}`;
+      await loadCampaigns();
+      renderSidebar();
+    }
+  });
+  titleEl.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); titleEl.blur(); } });
+
+  // Wire up buttons
+  document.getElementById("btn-figma-panel").addEventListener("click", toggleFigmaPanel);
+  document.getElementById("btn-import").addEventListener("click", () => document.getElementById("upload-input").click());
+  document.getElementById("btn-new-carousel").addEventListener("click", () => showCreateCarouselModal(campaign.id));
+  document.getElementById("btn-zip").addEventListener("click", () => showZipModal());
+  document.getElementById("upload-input").addEventListener("change", e => handleUpload(e.target.files, campaign.id));
+
+  // Wire up Figma panel
+  if (campaign.figma_file_key) {
+    document.getElementById("p-filekey").value = campaign.figma_file_key;
+  }
+  document.getElementById("p-browse").addEventListener("click", panelBrowse);
+  document.getElementById("p-clear-sel").addEventListener("click", panelClearSel);
+  document.getElementById("p-run").addEventListener("click", panelConvert);
+
+  renderCampaignGrid(creatives, carousels);
+}
+
+function renderCampaignGrid(creatives, carousels) {
+  const grid = document.getElementById("campaign-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  const allItems = [
+    ...carousels.map(c => ({ ...c, _kind: "carousel" })),
+    ...creatives.map(c => ({ ...c, _kind: "creative" })),
+  ];
+
+  if (!allItems.length) {
+    grid.appendChild(el(`<div class="empty-state">
+      <b>Nenhum criativo ainda</b>
+      <span>Use "+ Figma" para converter frames ou "↑ Importar" para adicionar imagens.</span>
+    </div>`));
+    return;
+  }
+
+  allItems.forEach(item => {
+    if (item._kind === "carousel") grid.appendChild(makeCarouselCard(item));
+    else grid.appendChild(makeCreativeCard(item));
+  });
+}
+
+function makeCreativeCard(creative) {
+  const isDraft = creative.type === "html" && !creative.supabase_url;
+  let previewHtml = "";
+  if (creative.thumbnail_url) {
+    previewHtml = `<img src="${esc(creative.thumbnail_url)}" alt="" loading="lazy">`;
+  } else if (creative.type === "html") {
+    previewHtml = `<div class="html-preview-bg">
+      <span class="html-badge">&lt;/&gt; HTML</span>
+      <span class="html-size">${esc(creative.format_label || `${creative.width}×${creative.height}`)}</span>
+    </div>`;
+  } else if (creative.type === "video") {
+    previewHtml = `<div class="html-preview-bg" style="background:linear-gradient(135deg,#1B1E2E,#3A3F6A)">
+      <span class="media-icon">▶</span>
+      <span class="html-size">video</span>
+    </div>`;
+  } else {
+    previewHtml = `<div class="html-preview-bg" style="background:linear-gradient(135deg,#2A2E44,#4A3F6A)">
+      <span class="media-icon">🖼</span>
+    </div>`;
+  }
+
+  const statusBadge = isDraft
+    ? `<span class="draft-badge">Rascunho</span>`
+    : (creative.type === "html" ? `<span class="published-badge">Publicado</span>` : "");
+
+  const typeLabel = creative.type === "html"
+    ? `HTML · ${esc(creative.format_label)}`
+    : creative.type;
+
+  const card = el(`<div class="item-card" data-id="${creative.id}" data-type="${esc(creative.type)}">
+    <div class="item-preview">
+      ${previewHtml}
+      ${statusBadge}
+    </div>
+    <div class="item-label">
+      <div class="item-name">${esc(creative.name)}</div>
+      <div class="item-meta">${typeLabel}</div>
+    </div>
+    <button class="item-menu">⋯</button>
+  </div>`);
+
+  card.addEventListener("click", e => {
+    if (e.target.classList.contains("item-menu")) return;
+    showPreviewModal(creative);
+  });
+
+  const menuItems = [
+    { label: "Pré-visualizar", action: () => showPreviewModal(creative) },
+  ];
+  if (creative.type === "html") {
+    menuItems.push({ label: "Baixar HTML", action: () => downloadCreativeHtml(creative) });
+  }
+  menuItems.push({ label: "Adicionar a carrossel", action: () => addToCarouselPrompt(creative) });
+  menuItems.push({ label: "Excluir", danger: true, action: () => deleteCreative(creative) });
+
+  card.querySelector(".item-menu").addEventListener("click", e => {
+    e.stopPropagation();
+    showCtxMenu(e, menuItems);
+  });
+  return card;
+}
+
+function downloadCreativeHtml(creative) {
+  const a = document.createElement("a");
+  a.href = `/api/creatives/${creative.id}/download`;
+  a.download = "";
+  a.click();
+}
+
+function makeCarouselCard(carousel) {
+  const thumbs = (carousel.items || []).slice(0, 3);
+  const thumbsHtml = thumbs.map(it =>
+    it.thumbnail_url
+      ? `<img class="folder-thumb" src="${esc(it.thumbnail_url)}" alt="">`
+      : `<div class="folder-thumb-ph"></div>`
+  ).join("");
+
+  const card = el(`<div class="item-card carousel-card" data-id="${carousel.id}">
+    <div class="item-preview folder-preview">
+      <svg class="folder-svg" viewBox="0 0 56 56" fill="none">
+        <rect x="2" y="14" width="52" height="36" rx="5" fill="#0FA47F" opacity=".18"/>
+        <path d="M2 20a5 5 0 0 1 5-5h14l4 5H49a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V20Z" fill="#0FA47F" opacity=".35"/>
+        <path d="M2 22a5 5 0 0 1 5-5h14l4 5H49a5 5 0 0 1 5 5v14a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V22Z" fill="#0FA47F"/>
+      </svg>
+      <div class="folder-thumbs">${thumbsHtml}</div>
+    </div>
+    <div class="item-label">
+      <div class="item-name">${esc(carousel.name)}</div>
+      <div class="item-meta">carrossel · ${carousel.item_count || 0} item${carousel.item_count !== 1 ? "s" : ""}</div>
+    </div>
+    <button class="item-menu">⋯</button>
+  </div>`);
+
+  card.addEventListener("click", e => {
+    if (e.target.classList.contains("item-menu")) return;
+    showCarouselModal(carousel);
+  });
+  card.querySelector(".item-menu").addEventListener("click", e => {
+    e.stopPropagation();
+    showCtxMenu(e, [
+      { label: "Ver itens", action: () => showCarouselModal(carousel) },
+      { label: "Exportar ZIP", action: () => showZipModal(carousel) },
+      { label: "Excluir", danger: true, action: () => deleteCarousel(carousel) },
+    ]);
+  });
+  return card;
+}
+
+// ===== FIGMA PANEL =====
+function toggleFigmaPanel() {
+  const panel = document.getElementById("figma-panel");
+  const toggle = document.getElementById("panel-toggle");
+  if (!panel) return;
+  if (panel.style.display === "none") {
+    panel.style.display = "block";
+    if (toggle) toggle.classList.add("open");
+  } else {
+    panel.style.display = "none";
+    if (toggle) toggle.classList.remove("open");
+  }
+}
+
+async function panelBrowse() {
+  const fileKey = document.getElementById("p-filekey").value.trim();
+  if (!fileKey) { alert("Cole o file key ou a URL do Figma primeiro."); return; }
+  const btn = document.getElementById("p-browse");
+  btn.disabled = true; btn.textContent = "Buscando…";
+  const grid = document.getElementById("p-frame-grid");
+  const picker = document.getElementById("p-picker");
+  grid.innerHTML = `<div class="picker-loading">Carregando frames…</div>`;
+  picker.style.display = "flex";
+  picker.style.flexDirection = "column";
+
+  try {
+    const data = await api("POST", "/api/browse", { file_key: fileKey });
+    if (data.status !== "ok") throw new Error(data.error || "Erro ao buscar frames");
+    panelRenderFrameGrid(data.frames);
+  } catch(e) {
+    grid.innerHTML = `<div class="picker-loading" style="color:var(--red)">${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "Buscar frames →";
+  }
+}
+
+function panelRenderFrameGrid(frames) {
+  const grid = document.getElementById("p-frame-grid");
+  if (!frames.length) { grid.innerHTML = `<div class="picker-loading">Nenhum frame encontrado.</div>`; return; }
+  grid.innerHTML = "";
+  frames.forEach(f => {
+    const card = document.createElement("div");
+    card.className = "frame-card" + (state.selectedFrames[f.id] ? " selected" : "");
+    card.dataset.id = f.id;
+    card.innerHTML = `
+      <div class="fcheck">✓</div>
+      <div class="thumb-wrap">
+        ${f.thumbnail_url
+          ? `<img class="thumb" src="${esc(f.thumbnail_url)}" alt="" loading="lazy">`
+          : `<div class="thumb-placeholder" style="aspect-ratio:${f.width}/${f.height}">${f.width}×${f.height}</div>`}
+      </div>
+      <div class="finfo">
+        <div class="fname" title="${esc(f.name)}">${esc(f.name)}</div>
+        <div class="fmeta">${esc(f.page)} · ${f.width}×${f.height}</div>
+      </div>`;
+    card.addEventListener("click", () => panelToggleFrame(f, card));
+    grid.appendChild(card);
+  });
+  updatePanelPickerLabel();
+
+  // Save file key to campaign if different
+  if (state.currentCampaign) {
+    const fk = document.getElementById("p-filekey").value.trim();
+    if (fk && fk !== state.currentCampaign.figma_file_key) {
+      api("PUT", `/api/campaigns/${state.currentCampaign.id}`, { figma_file_key: fk });
+      state.currentCampaign.figma_file_key = fk;
+    }
+  }
+}
+
+function panelToggleFrame(f, card) {
+  if (state.selectedFrames[f.id]) {
+    delete state.selectedFrames[f.id];
+    card.classList.remove("selected");
+  } else {
+    state.selectedFrames[f.id] = f;
+    card.classList.add("selected");
+  }
+  updatePanelPickerLabel();
+  const runBtn = document.getElementById("p-run");
+  if (runBtn) runBtn.style.display = Object.keys(state.selectedFrames).length ? "block" : "none";
+}
+
+function panelClearSel() {
+  state.selectedFrames = {};
+  document.querySelectorAll("#p-frame-grid .frame-card.selected").forEach(c => c.classList.remove("selected"));
+  updatePanelPickerLabel();
+  const runBtn = document.getElementById("p-run");
+  if (runBtn) runBtn.style.display = "none";
+}
+
+function updatePanelPickerLabel() {
+  const n = Object.keys(state.selectedFrames).length;
+  const lbl = document.getElementById("p-picker-label");
+  if (lbl) lbl.textContent = n ? `${n} frame${n > 1 ? "s" : ""} selecionado${n > 1 ? "s" : ""}` : "Frames";
+  const runBtn = document.getElementById("p-run");
+  if (runBtn) runBtn.style.display = n ? "block" : "none";
+}
+
+async function panelConvert() {
+  const fileKey = document.getElementById("p-filekey").value.trim();
+  const scale = +(document.getElementById("p-scale").value);
+  const nodeIds = Object.keys(state.selectedFrames);
+  if (!nodeIds.length) return;
+
+  const btn = document.getElementById("p-run");
+  btn.disabled = true; btn.textContent = "Convertendo…";
+
+  const resultsArea = document.getElementById("p-results");
+  resultsArea.innerHTML = "";
+
+  const campaignId = state.currentCampaign?.id;
+  const campaignName = state.currentCampaign?.name || "";
+
+  // Create placeholder cards
+  const cards = nodeIds.map(nid => {
+    const info = state.selectedFrames[nid];
+    const card = el(`<div class="conv-card" data-node-id="${esc(nid)}">
+      <div class="conv-top"><span class="id">…</span><span class="fmt">—</span><span class="nid">${esc(info?.name || nid)}</span></div>
+      ${pipeHTML()}
+    </div>`);
+    card.querySelectorAll(".step").forEach(s => s.className = "step active");
+    resultsArea.appendChild(card);
+    return { nid, card };
+  });
+
+  let results;
+  try {
+    const body = {
+      file_key: fileKey, node_ids: nodeIds, scale,
+      upload: false,                // preview only — Supabase happens on publish
+      campaign: campaignName, campaign_id: campaignId || undefined,
+    };
+    const data = await api("POST", "/api/convert_batch", body);
+    if (data.status === "config_error") {
+      results = nodeIds.map(() => ({ status: "config_error", error: data.error }));
+    } else if (data.status !== "ok") {
+      results = nodeIds.map(() => ({ status: "error", error: data.error || "Falha." }));
+    } else {
+      results = data.results;
+    }
+  } catch(e) {
+    results = nodeIds.map(() => ({ status: "error", error: "Servidor não respondeu." }));
+  }
+
+  for (let i = 0; i < cards.length; i++) {
+    const { card, nid } = cards[i];
+    const res = results[i] || { status: "error", error: "Sem resultado" };
+    if (res.creative_id) card.dataset.creativeId = res.creative_id;
+    card.dataset.nodeId = nid;
+    card.dataset.fileKey = fileKey;
+    card.dataset.scale = scale;
+    await finalizeConvCard(card, res, false);
+  }
+
+  btn.disabled = false; btn.textContent = "Converter selecionados";
+
+  // Refresh campaign grid to show draft creatives
+  if (campaignId) {
+    const data = await loadCampaign(campaignId);
+    if (data.status === "ok") {
+      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+      renderCampaignGrid(data.creatives, data.carousels);
+      await loadCampaigns();
+      renderSidebar();
+    }
+  }
+}
+
+// pipeline HTML builder (same as original)
+function pipeHTML() {
+  let h = '<div class="pipe">';
+  STAGES.forEach((s, i) => {
+    h += `<div class="step" data-step="${i}"><div class="mark">${i+1}</div><div class="name">${s}</div></div>`;
+    if (i < STAGES.length - 1) h += `<div class="link" data-link="${i}"></div>`;
+  });
+  return h + '</div>';
+}
+
+function setStage(card, idx, st) {
+  const step = card.querySelector(`.step[data-step="${idx}"]`);
+  if (step) step.className = "step " + st;
+  if (st === "done") { const lk = card.querySelector(`.link[data-link="${idx}"]`); if (lk) lk.classList.add("done"); }
+}
+
+async function animatePipe(card, upTo, finalErr, skipIdx) {
+  for (let i = 0; i <= upTo; i++) {
+    if (i === skipIdx) {
+      const step = card.querySelector(`.step[data-step="${i}"]`);
+      if (step) { step.className = "step"; const mk = step.querySelector(".mark"); mk.style.borderStyle = "dashed"; mk.innerHTML = "–"; }
+      const lk = card.querySelector(`.link[data-link="${i}"]`); if (lk) lk.classList.add("done");
+      continue;
+    }
+    setStage(card, i, "active");
+    await new Promise(r => setTimeout(r, 240));
+    if (finalErr && i === upTo) { setStage(card, i, "err"); return; }
+    setStage(card, i, "done");
+  }
+}
+
+async function finalizeConvCard(card, res, upload) {
+  const isErr = res.status !== "ok";
+  card.querySelectorAll(".step").forEach(s => s.className = "step");
+  card.querySelectorAll(".link").forEach(l => l.classList.remove("done"));
+  card.querySelector(".id").textContent = res.template_id || (isErr ? "erro" : "—");
+  card.querySelector(".fmt").textContent = res.format || "—";
+  const skipIdx = (!isErr && !upload) ? 3 : -1;
+  await animatePipe(card, isErr ? (res.status === "config_error" ? 0 : 3) : STAGES.length - 1, isErr, skipIdx);
+
+  if (isErr) {
+    card.appendChild(el(`<div class="err-box"><b>Erro.</b> <code>${esc(res.error || "")}</code></div>`));
+  } else {
+    const warns = (res.warnings || []);
+    if (warns.length) card.appendChild(el(`<div class="warn-notice">${esc(warns.join(" "))}</div>`));
+
+    if (!upload) {
+      // Draft state — show metatag form + publish button
+      const form = el(`<div class="meta-form">
+        <div class="meta-form-label">Metatags do anúncio</div>
+        <input class="meta-title" placeholder="Título — ex: Apartamentos no Ibirapuera" spellcheck="false">
+        <textarea class="meta-desc" placeholder="Descrição completa do anúncio" spellcheck="false"></textarea>
+        <input class="meta-message" placeholder="Mensagem / CTA — ex: Clique e saiba mais" spellcheck="false">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="publish-btn">↑ Publicar no Supabase</button>
+          <a href="${esc(res.preview_url || "")}" target="_blank" style="font-size:12px;color:var(--accent-deep)">Preview →</a>
+        </div>
+      </div>`);
+      form.querySelector(".publish-btn").addEventListener("click", () => publishFromCard(card, res));
+      card.appendChild(form);
+    } else {
+      // Already uploaded
+      card.appendChild(el(`<div class="published-bar">✓ Publicado no Supabase</div>`));
+    }
+  }
+}
+
+// ===== PUBLISH FROM CARD =====
+async function publishFromCard(card, prevRes) {
+  const fileKey = card.dataset.fileKey;
+  const nid = card.dataset.nodeId;
+  const scale = +(card.dataset.scale || 2);
+  const creativeId = card.dataset.creativeId ? +card.dataset.creativeId : undefined;
+  const campaignId = state.currentCampaign?.id;
+  const campaignName = state.currentCampaign?.name || "";
+
+  const title = card.querySelector(".meta-title")?.value?.trim() || "";
+  const desc = card.querySelector(".meta-desc")?.value?.trim() || "";
+  const message = card.querySelector(".meta-message")?.value?.trim() || "";
+
+  const btn = card.querySelector(".publish-btn");
+  btn.disabled = true; btn.textContent = "Publicando…";
+
+  try {
+    const body = {
+      file_key: fileKey, node_ids: [nid], scale, upload: true,
+      campaign: campaignName, campaign_id: campaignId || undefined,
+      creative_ids: creativeId ? [creativeId] : [],
+      title, desc, message,
+    };
+    const data = await api("POST", "/api/convert_batch", body);
+    if (data.status !== "ok" || !data.results?.[0] || data.results[0].status !== "ok") {
+      const err = data.results?.[0]?.error || data.error || "Falha ao publicar.";
+      btn.disabled = false; btn.textContent = "↑ Publicar no Supabase";
+      alert(err);
+      return;
+    }
+    // Replace meta form with published bar
+    const form = card.querySelector(".meta-form");
+    if (form) form.replaceWith(el(`<div class="published-bar">✓ Publicado no Supabase</div>`));
+
+    // Refresh grid to show thumbnail
+    if (campaignId) {
+      const cdata = await loadCampaign(campaignId);
+      if (cdata.status === "ok") {
+        state.currentCampaign = { ...cdata.campaign, creatives: cdata.creatives, carousels: cdata.carousels };
+        renderCampaignGrid(cdata.creatives, cdata.carousels);
+        await loadCampaigns(); renderSidebar();
+      }
+    }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = "↑ Publicar no Supabase";
+    alert("Erro: " + e.message);
+  }
+}
+
+// ===== FILE UPLOAD =====
+async function handleUpload(files, campaignId) {
+  if (!files || !files.length) return;
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      await fetch(`/api/campaigns/${campaignId}/upload`, { method: "POST", body: fd });
+    } catch(e) {}
+  }
+  // Refresh
+  const data = await loadCampaign(campaignId);
+  if (data.status === "ok") {
+    state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+    renderCampaignGrid(data.creatives, data.carousels);
+    await loadCampaigns(); renderSidebar();
+  }
+}
+
+// ===== SEARCH =====
+function filterItems(items, field) {
+  const q = (document.getElementById("topbar-search")?.value || "").toLowerCase().trim();
+  if (!q) return items;
+  return items.filter(item => (item[field] || "").toLowerCase().includes(q));
+}
+
+// ===== CONTEXT MENU =====
+let ctxMenuItems = [];
+function showCtxMenu(e, items) {
+  e.preventDefault(); e.stopPropagation();
+  const menu = document.getElementById("ctx-menu");
+  menu.innerHTML = "";
+  items.forEach(({ label, action, danger }) => {
+    const btn = el(`<div class="ctx-item${danger ? " danger" : ""}">${esc(label)}</div>`);
+    btn.addEventListener("click", () => { closeCtxMenu(); action(); });
+    menu.appendChild(btn);
+  });
+  menu.style.display = "block";
+  menu.style.top = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 10) + "px";
+  menu.style.left = Math.min(e.clientX, window.innerWidth - menu.offsetWidth - 10) + "px";
+}
+function closeCtxMenu() { document.getElementById("ctx-menu").style.display = "none"; }
+document.addEventListener("click", closeCtxMenu);
+
+// ===== MODALS =====
+function openModal(html, sizeClass = "modal-md") {
+  const overlay = document.getElementById("modal-overlay");
+  const box = document.getElementById("modal-box");
+  box.className = `modal ${sizeClass}`;
+  box.innerHTML = html;
+  overlay.classList.add("open");
+}
+function closeModal() {
+  document.getElementById("modal-overlay").classList.remove("open");
+}
+document.getElementById("modal-overlay").addEventListener("click", e => {
+  if (e.target === document.getElementById("modal-overlay")) closeModal();
+});
+
+// Create campaign
+function showCreateCampaignModal() {
+  openModal(`
+    <div class="modal-header">
+      <h2>Nova campanha</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>Nome da campanha</label>
+        <input class="form-input" id="new-camp-name" placeholder="ex: Lançamento Jardins" autofocus>
+      </div>
+      <div class="form-field">
+        <label>File key do Figma (opcional)</label>
+        <input class="form-input" id="new-camp-fk" placeholder="cole a URL ou a chave">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="submitCreateCampaign()">Criar campanha</button>
+    </div>`, "modal-sm");
+  document.getElementById("new-camp-name").focus();
+  document.getElementById("new-camp-name").addEventListener("keydown", e => { if (e.key === "Enter") submitCreateCampaign(); });
+}
+
+async function submitCreateCampaign() {
+  const name = document.getElementById("new-camp-name").value.trim();
+  const fk = document.getElementById("new-camp-fk").value.trim();
+  if (!name) { document.getElementById("new-camp-name").focus(); return; }
+  closeModal();
+  const data = await api("POST", "/api/campaigns", { name, figma_file_key: fk });
+  if (data.status === "ok") {
+    await loadCampaigns();
+    navigate(`#/campaigns/${data.campaign.id}`);
+  }
+}
+
+// Rename campaign
+function renameCampaign(campaign) {
+  openModal(`
+    <div class="modal-header">
+      <h2>Renomear campanha</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>Nome</label>
+        <input class="form-input" id="rename-camp" value="${esc(campaign.name)}" autofocus>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="submitRenameCampaign(${campaign.id})">Salvar</button>
+    </div>`, "modal-sm");
+  const inp = document.getElementById("rename-camp");
+  inp.focus(); inp.select();
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") submitRenameCampaign(campaign.id); });
+}
+
+async function submitRenameCampaign(id) {
+  const name = document.getElementById("rename-camp").value.trim();
+  if (!name) return;
+  closeModal();
+  await api("PUT", `/api/campaigns/${id}`, { name });
+  await loadCampaigns();
+  route();
+}
+
+// Delete campaign
+function deleteCampaign(campaign) {
+  if (!confirm(`Excluir campanha "${campaign.name}" e todos os seus criativos?`)) return;
+  api("DELETE", `/api/campaigns/${campaign.id}`).then(() => {
+    loadCampaigns().then(() => { navigate("#/"); });
+  });
+}
+
+// Delete creative
+function deleteCreative(creative) {
+  if (!confirm(`Excluir "${creative.name}"?`)) return;
+  api("DELETE", `/api/creatives/${creative.id}`).then(async () => {
+    const id = state.currentCampaign?.id;
+    if (id) {
+      const data = await loadCampaign(id);
+      if (data.status === "ok") {
+        state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+        renderCampaignGrid(data.creatives, data.carousels);
+        await loadCampaigns(); renderSidebar();
+      }
+    }
+  });
+}
+
+// Delete carousel
+function deleteCarousel(carousel) {
+  if (!confirm(`Excluir carrossel "${carousel.name}"?`)) return;
+  api("DELETE", `/api/carousels/${carousel.id}`).then(async () => {
+    const id = state.currentCampaign?.id;
+    if (id) {
+      const data = await loadCampaign(id);
+      if (data.status === "ok") {
+        state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+        renderCampaignGrid(data.creatives, data.carousels);
+      }
+    }
+  });
+}
+
+// Create carousel
+function showCreateCarouselModal(campaignId) {
+  openModal(`
+    <div class="modal-header">
+      <h2>Novo carrossel</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>Nome do carrossel</label>
+        <input class="form-input" id="new-carousel-name" placeholder="ex: Plantas do empreendimento" autofocus>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="submitCreateCarousel(${campaignId})">Criar</button>
+    </div>`, "modal-sm");
+  document.getElementById("new-carousel-name").focus();
+  document.getElementById("new-carousel-name").addEventListener("keydown", e => { if (e.key === "Enter") submitCreateCarousel(campaignId); });
+}
+
+async function submitCreateCarousel(campaignId) {
+  const name = document.getElementById("new-carousel-name").value.trim();
+  if (!name) return;
+  closeModal();
+  await api("POST", `/api/campaigns/${campaignId}/carousels`, { name });
+  const data = await loadCampaign(campaignId);
+  if (data.status === "ok") {
+    state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+    renderCampaignGrid(data.creatives, data.carousels);
+  }
+}
+
+// Add to carousel
+function addToCarouselPrompt(creative) {
+  const carousels = state.currentCampaign?.carousels || [];
+  if (!carousels.length) {
+    alert("Crie um carrossel primeiro usando o botão \"⊞ Carrossel\".");
+    return;
+  }
+  const opts = carousels.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  openModal(`
+    <div class="modal-header">
+      <h2>Adicionar a carrossel</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>Carrossel</label>
+        <select class="form-input" id="target-carousel">${opts}</select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="submitAddToCarousel(${creative.id})">Adicionar</button>
+    </div>`, "modal-sm");
+}
+
+async function submitAddToCarousel(creativeId) {
+  const carouselId = +document.getElementById("target-carousel").value;
+  closeModal();
+  await api("POST", `/api/carousels/${carouselId}/items`, { creative_id: creativeId });
+  const id = state.currentCampaign?.id;
+  if (id) {
+    const data = await loadCampaign(id);
+    if (data.status === "ok") {
+      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+      renderCampaignGrid(data.creatives, data.carousels);
+    }
+  }
+}
+
+// Carousel modal
+async function showCarouselModal(carousel) {
+  const data = await api("GET", `/api/campaigns/${carousel.campaign_id}`);
+  const freshCarousel = data.carousels?.find(c => c.id === carousel.id) || carousel;
+  const items = freshCarousel.items || [];
+
+  const itemsHtml = items.map(it => `
+    <div class="carousel-list-item" data-item-id="${it.item_id}">
+      ${it.thumbnail_url ? `<img class="carousel-list-thumb" src="${esc(it.thumbnail_url)}" alt="">` : `<div class="carousel-list-thumb"></div>`}
+      <span class="carousel-list-name">${esc(it.name)}</span>
+      <button class="zip-remove" onclick="removeCarouselItem(${it.item_id},${carousel.id})">×</button>
+    </div>`).join("") || `<div style="color:var(--muted);font-size:13px;padding:12px 0">Nenhum item ainda. Adicione criativos usando "⋯ → Adicionar a carrossel".</div>`;
+
+  openModal(`
+    <div class="modal-header">
+      <h2>${esc(freshCarousel.name)}</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="carousel-items-list">${itemsHtml}</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="showZipModal(${JSON.stringify(freshCarousel).replace(/"/g,'&quot;')})">Exportar ZIP</button>
+      <button class="btn-primary" onclick="closeModal()">Fechar</button>
+    </div>`, "modal-md");
+}
+
+async function removeCarouselItem(itemId, carouselId) {
+  await api("DELETE", `/api/carousel-items/${itemId}`);
+  const c = state.currentCampaign?.carousels?.find(x => x.id === carouselId) || { campaign_id: state.currentCampaign?.id };
+  await showCarouselModal({ id: carouselId, campaign_id: c.campaign_id || state.currentCampaign?.id });
+  const id = state.currentCampaign?.id;
+  if (id) {
+    const data = await loadCampaign(id);
+    if (data.status === "ok") {
+      state.currentCampaign = { ...data.campaign, creatives: data.creatives, carousels: data.carousels };
+      renderCampaignGrid(data.creatives, data.carousels);
+    }
+  }
+}
+
+// Preview modal
+function previewStage(manifest) {
+  const W = manifest.width, H = manifest.height, target = 340, scale = target / W;
+  const stage = el(`<div class="stage" style="width:${W}px;height:${H}px;transform:scale(${scale})"></div>`);
+  (manifest.backgrounds || []).forEach(bg => {
+    const style = `left:${bg.x}px;top:${bg.y}px;width:${bg.width}px;height:${bg.height}px;`;
+    if (bg.url) {
+      stage.appendChild(el(`<img class="lyr" src="${esc(bg.url)}" style="${style}object-fit:cover" alt="">`));
+    } else {
+      stage.appendChild(el(`<div class="lyr" style="${style}background:linear-gradient(135deg,#1B1E2E,#0FA47F)"></div>`));
+    }
+  });
+  (manifest.slots || []).forEach(s => {
+    const st = `left:${s.x}px;top:${s.y}px;width:${s.width}px;height:${s.height}px;` +
+      `font-family:'${s.font || "Space Grotesk"}',sans-serif;font-weight:${s.weight || 600};` +
+      `font-size:${s.size || 32}px;color:${s.color || "#fff"};text-align:${s.align || "left"};` +
+      `display:flex;flex-direction:column;justify-content:center;white-space:pre-wrap`;
+    stage.appendChild(el(`<div class="lyr txt" contenteditable="true" style="${st}">${esc(s.default || "")}</div>`));
+  });
+  const wrap = el(`<div class="preview-stage-wrap"><div style="width:${W * scale}px;height:${H * scale}px"></div></div>`);
+  wrap.querySelector("div").appendChild(stage);
+  return wrap;
+}
+
+function showPreviewModal(creative) {
+  let bodyHtml = "";
+  let manifest = null;
+  if (creative.manifest_json) {
+    try { manifest = JSON.parse(creative.manifest_json); } catch(e) {}
+  }
+
+  if (creative.type === "html" && manifest) {
+    openModal(`
+      <div class="modal-header">
+        <h2>${esc(creative.name)}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body" id="preview-modal-body">
+        <div class="preview-modal-wrap" id="preview-stage-mount"></div>
+        <div style="margin-top:12px">
+          ${creative.local_path ? `<a href="${esc(creative.supabase_url || "")}" style="font-size:12px;font-family:var(--mono);color:var(--accent-deep)" target="_blank">Ver no Supabase</a>` : ""}
+        </div>
+        <details style="margin-top:12px">
+          <summary style="font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);cursor:pointer;font-weight:600">manifest.json</summary>
+          <pre style="margin-top:8px;background:var(--ink);color:#C8CEE8;font-family:var(--mono);font-size:11px;line-height:1.5;padding:12px;border-radius:8px;overflow:auto;max-height:220px">${esc(JSON.stringify(manifest, null, 2))}</pre>
+        </details>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeModal()">Fechar</button>
+      </div>`, "modal-md");
+    const mount = document.getElementById("preview-stage-mount");
+    if (mount) mount.appendChild(previewStage(manifest));
+  } else if (creative.type === "image" && creative.thumbnail_url) {
+    openModal(`
+      <div class="modal-header">
+        <h2>${esc(creative.name)}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body" style="text-align:center">
+        <img src="${esc(creative.thumbnail_url)}" style="max-width:100%;border-radius:8px" alt="">
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeModal()">Fechar</button>
+      </div>`, "modal-md");
+  } else {
+    openModal(`
+      <div class="modal-header">
+        <h2>${esc(creative.name)}</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--muted);font-size:13px">Preview não disponível para este tipo de arquivo.</p>
+        <p style="font-family:var(--mono);font-size:11px;margin-top:8px;color:var(--muted)">${esc(creative.local_path || "")}</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeModal()">Fechar</button>
+      </div>`, "modal-sm");
+  }
+}
+
+// ZIP export modal
+let zipOrder = []; // array of creative objects in export order
+
+function showZipModal(preselectedCarousel) {
+  const campaign = state.currentCampaign;
+  if (!campaign) return;
+
+  const allCreatives = campaign.creatives || [];
+  zipOrder = [];
+
+  // If a carousel was passed, pre-select its items
+  if (preselectedCarousel && preselectedCarousel.items) {
+    zipOrder = preselectedCarousel.items.map(it => ({ ...it, id: it.id }));
+  }
+
+  openModal(buildZipModalHtml("carousel"), "modal-lg");
+  renderZipSelectionGrid("carousel");
+  renderZipOrderList();
+  wireZipModal();
+}
+
+function buildZipModalHtml(format) {
+  return `
+    <div class="modal-header">
+      <h2>Exportar ZIP</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-field">
+        <label>Formato</label>
+        <div class="seg" id="zip-format-seg">
+          <button class="${format === "carousel" ? "on" : ""}" data-fmt="carousel" onclick="switchZipFormat('carousel')">Carrossel</button>
+          <button class="${format === "video" ? "on" : ""}" data-fmt="video" onclick="switchZipFormat('video')">Vídeo</button>
+        </div>
+      </div>
+      <div id="zip-format-body"></div>
+      <div class="form-field" style="margin-top:16px">
+        <label>Título</label>
+        <input class="form-input" id="zip-title" placeholder="Título do anúncio">
+      </div>
+      <div class="form-field">
+        <label>Descrição</label>
+        <textarea class="form-input" id="zip-desc" placeholder="Descrição completa"></textarea>
+      </div>
+      <div class="form-field">
+        <label>Mensagem (CTA)</label>
+        <input class="form-input" id="zip-message" placeholder="ex: Clique e saiba mais">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" id="btn-download-zip" onclick="downloadZip()">↓ Baixar ZIP</button>
+    </div>`;
+}
+
+function switchZipFormat(fmt) {
+  document.querySelectorAll("#zip-format-seg button").forEach(b => b.classList.toggle("on", b.dataset.fmt === fmt));
+  renderZipSelectionGrid(fmt);
+}
+
+function getCurrentZipFormat() {
+  return document.querySelector("#zip-format-seg button.on")?.dataset.fmt || "carousel";
+}
+
+function renderZipSelectionGrid(format) {
+  const body = document.getElementById("zip-format-body");
+  if (!body) return;
+  const allCreatives = state.currentCampaign?.creatives || [];
+
+  if (format === "carousel") {
+    const items = allCreatives.map(c => {
+      const isSelected = zipOrder.some(o => o.id === c.id);
+      return `<div class="zip-item${isSelected ? " selected" : ""}" data-id="${c.id}" onclick="zipToggleCreative(${c.id})">
+        <div class="zip-item-preview">
+          ${c.thumbnail_url ? `<img src="${esc(c.thumbnail_url)}" alt="">` : `<div style="padding:8px;font-size:9px;color:var(--muted);text-align:center">${esc(c.format_label || c.type)}</div>`}
+        </div>
+        <div class="zip-item-name">${esc(c.name)}</div>
+      </div>`;
+    }).join("");
+
+    body.innerHTML = `
+      <div class="form-field">
+        <label>Selecionar criativos</label>
+        <div class="zip-select-grid">${items || `<div style="color:var(--muted);font-size:13px">Nenhum criativo na campanha.</div>`}</div>
+      </div>
+      <div class="form-field">
+        <label>Variante</label>
+        <select class="form-input" id="zip-variant">
+          <option value="square">Square</option>
+          <option value="portrait">Portrait</option>
+          <option value="landscape">Landscape</option>
+        </select>
+      </div>
+      <div class="form-field" id="zip-order-section" style="display:${zipOrder.length ? "block" : "none"}">
+        <label>Ordem de exportação (arraste para reordenar)</label>
+        <div class="zip-order-list" id="zip-order-list"></div>
+      </div>`;
+    renderZipOrderList();
+  } else {
+    const videos = allCreatives.filter(c => c.type === "video");
+    const images = allCreatives.filter(c => c.type === "image");
+    const vOpts = videos.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+    body.innerHTML = `
+      <div class="form-field">
+        <label>Arquivo de vídeo</label>
+        <select class="form-input" id="zip-video-id">${vOpts || `<option value="">— nenhum vídeo na campanha —</option>`}</select>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:-8px;padding:2px 0">
+        A capa será extraída automaticamente do primeiro frame do vídeo.
+      </div>`;
+  }
+}
+
+function zipToggleCreative(cid) {
+  const allCreatives = state.currentCampaign?.creatives || [];
+  const creative = allCreatives.find(c => c.id === cid);
+  if (!creative) return;
+  const idx = zipOrder.findIndex(o => o.id === cid);
+  if (idx > -1) {
+    zipOrder.splice(idx, 1);
+  } else {
+    zipOrder.push(creative);
+  }
+  // Update selection indicator
+  const item = document.querySelector(`.zip-item[data-id="${cid}"]`);
+  if (item) item.classList.toggle("selected", zipOrder.some(o => o.id === cid));
+  // Show/hide order section
+  const section = document.getElementById("zip-order-section");
+  if (section) section.style.display = zipOrder.length ? "block" : "none";
+  renderZipOrderList();
+}
+
+function renderZipOrderList() {
+  const list = document.getElementById("zip-order-list");
+  if (!list) return;
+  list.innerHTML = "";
+  let dragSrcIdx = null;
+
+  zipOrder.forEach((creative, idx) => {
+    const item = el(`<div class="zip-order-item" draggable="true" data-idx="${idx}">
+      <span class="drag-handle">⠿</span>
+      ${creative.thumbnail_url ? `<img class="zip-order-thumb" src="${esc(creative.thumbnail_url)}" alt="">` : `<div class="zip-order-thumb"></div>`}
+      <span class="zip-order-name">${esc(creative.name)}</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${idx + 1}</span>
+      <button class="zip-remove" onclick="zipRemoveIdx(${idx})">×</button>
+    </div>`);
+
+    item.addEventListener("dragstart", e => { dragSrcIdx = idx; item.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+    item.addEventListener("dragend", () => item.classList.remove("dragging"));
+    item.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; item.classList.add("drag-over"); });
+    item.addEventListener("dragleave", () => item.classList.remove("drag-over"));
+    item.addEventListener("drop", e => {
+      e.preventDefault(); item.classList.remove("drag-over");
+      if (dragSrcIdx === null || dragSrcIdx === idx) return;
+      const moved = zipOrder.splice(dragSrcIdx, 1)[0];
+      zipOrder.splice(idx, 0, moved);
+      dragSrcIdx = null;
+      renderZipOrderList();
+    });
+
+    list.appendChild(item);
+  });
+}
+
+function zipRemoveIdx(idx) {
+  const removed = zipOrder.splice(idx, 1)[0];
+  if (removed) {
+    const item = document.querySelector(`.zip-item[data-id="${removed.id}"]`);
+    if (item) item.classList.remove("selected");
+  }
+  const section = document.getElementById("zip-order-section");
+  if (section) section.style.display = zipOrder.length ? "block" : "none";
+  renderZipOrderList();
+}
+
+function wireZipModal() {}
+
+async function downloadZip() {
+  const format = getCurrentZipFormat();
+  const title = document.getElementById("zip-title")?.value?.trim() || "";
+  const description = document.getElementById("zip-desc")?.value?.trim() || "";
+  const message = document.getElementById("zip-message")?.value?.trim() || "";
+
+  const btn = document.getElementById("btn-download-zip");
+  btn.disabled = true; btn.textContent = "Gerando…";
+
+  let body;
+  if (format === "carousel") {
+    const variant = document.getElementById("zip-variant")?.value || "square";
+    body = { format, title, description, message, carousel_variant: variant, creative_ids: zipOrder.map(c => c.id) };
+  } else {
+    const videoId = document.getElementById("zip-video-id")?.value;
+    body = { format, title, description, message, video_creative_id: videoId ? +videoId : null };
+  }
+
+  try {
+    const resp = await fetch("/api/export/zip", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error("Falha ao gerar ZIP");
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = (title || "export") + ".zip"; a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert("Erro ao gerar ZIP: " + e.message);
+  }
+
+  btn.disabled = false; btn.textContent = "↓ Baixar ZIP";
+}
+
+// ===== SEARCH =====
+document.getElementById("topbar-search").addEventListener("input", () => {
+  const hash = window.location.hash || "#/";
+  if (hash === "#/") renderHome();
+});
+
+// ===== NEW CAMPAIGN BUTTON IN TOPBAR =====
+document.getElementById("btn-new-campaign").addEventListener("click", showCreateCampaignModal);
+
+// ===== INIT =====
+window.addEventListener("hashchange", route);
+window.addEventListener("load", () => {
+  checkHealth();
+  loadCampaigns().then(route);
+});
+</script>
+</body>
+</html>

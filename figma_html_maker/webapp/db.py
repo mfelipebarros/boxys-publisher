@@ -1,0 +1,285 @@
+"""Camada de persistência SQLite — campanhas, criativos e carrosséis."""
+
+from __future__ import annotations
+
+import os
+import sqlite3
+from pathlib import Path
+from typing import List, Optional
+
+DB_PATH = Path(os.environ.get("DB_PATH", "./data/boxys.db")).resolve()
+
+
+def _migrate() -> None:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _conn() as cx:
+        cx.executescript("""
+            PRAGMA foreign_keys = ON;
+
+            CREATE TABLE IF NOT EXISTS campaigns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                figma_file_key TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS creatives (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
+                type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                local_path TEXT DEFAULT '',
+                supabase_url TEXT DEFAULT '',
+                thumbnail_url TEXT DEFAULT '',
+                width INTEGER DEFAULT 0,
+                height INTEGER DEFAULT 0,
+                figma_node_id TEXT DEFAULT '',
+                format_label TEXT DEFAULT '',
+                manifest_json TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS carousels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER REFERENCES campaigns(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS carousel_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                carousel_id INTEGER REFERENCES carousels(id) ON DELETE CASCADE,
+                creative_id INTEGER REFERENCES creatives(id) ON DELETE CASCADE,
+                order_index INTEGER DEFAULT 0
+            );
+        """)
+
+
+def _conn() -> sqlite3.Connection:
+    cx = sqlite3.connect(str(DB_PATH))
+    cx.row_factory = sqlite3.Row
+    cx.execute("PRAGMA foreign_keys = ON")
+    return cx
+
+
+def _row(row) -> Optional[dict]:
+    return dict(row) if row else None
+
+
+def _rows(rows: list) -> List[dict]:
+    return [dict(r) for r in rows]
+
+
+# ---- campaigns ----
+
+def create_campaign(name: str, figma_file_key: str = "") -> dict:
+    with _conn() as cx:
+        cur = cx.execute(
+            "INSERT INTO campaigns (name, figma_file_key) VALUES (?, ?)",
+            (name, figma_file_key),
+        )
+        return _row(cx.execute("SELECT * FROM campaigns WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def list_campaigns() -> list[dict]:
+    with _conn() as cx:
+        rows = cx.execute("SELECT * FROM campaigns ORDER BY updated_at DESC").fetchall()
+        result = _rows(rows)
+        for c in result:
+            c["creative_count"] = cx.execute(
+                "SELECT COUNT(*) FROM creatives WHERE campaign_id = ?", (c["id"],)
+            ).fetchone()[0]
+        return result
+
+
+def get_campaign(campaign_id: int) -> Optional[dict]:
+    with _conn() as cx:
+        return _row(cx.execute("SELECT * FROM campaigns WHERE id = ?", (campaign_id,)).fetchone())
+
+
+def update_campaign(campaign_id: int, name: Optional[str] = None, figma_file_key: Optional[str] = None) -> Optional[dict]:
+    with _conn() as cx:
+        if name is not None:
+            cx.execute(
+                "UPDATE campaigns SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (name, campaign_id),
+            )
+        if figma_file_key is not None:
+            cx.execute(
+                "UPDATE campaigns SET figma_file_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (figma_file_key, campaign_id),
+            )
+        return _row(cx.execute("SELECT * FROM campaigns WHERE id = ?", (campaign_id,)).fetchone())
+
+
+def delete_campaign(campaign_id: int) -> bool:
+    with _conn() as cx:
+        cur = cx.execute("DELETE FROM campaigns WHERE id = ?", (campaign_id,))
+        return cur.rowcount > 0
+
+
+def touch_campaign(campaign_id: int) -> None:
+    with _conn() as cx:
+        cx.execute(
+            "UPDATE campaigns SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (campaign_id,),
+        )
+
+
+# ---- creatives ----
+
+def create_creative(
+    campaign_id: int,
+    type: str,
+    name: str,
+    local_path: str = "",
+    supabase_url: str = "",
+    thumbnail_url: str = "",
+    width: int = 0,
+    height: int = 0,
+    figma_node_id: str = "",
+    format_label: str = "",
+    manifest_json: str = "",
+) -> dict:
+    with _conn() as cx:
+        cur = cx.execute(
+            """INSERT INTO creatives
+               (campaign_id, type, name, local_path, supabase_url, thumbnail_url,
+                width, height, figma_node_id, format_label, manifest_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (campaign_id, type, name, local_path, supabase_url, thumbnail_url,
+             width, height, figma_node_id, format_label, manifest_json),
+        )
+        return _row(cx.execute("SELECT * FROM creatives WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def list_creatives(campaign_id: int) -> list[dict]:
+    with _conn() as cx:
+        return _rows(cx.execute(
+            "SELECT * FROM creatives WHERE campaign_id = ? ORDER BY created_at DESC",
+            (campaign_id,),
+        ).fetchall())
+
+
+def get_creative(creative_id: int) -> Optional[dict]:
+    with _conn() as cx:
+        return _row(cx.execute("SELECT * FROM creatives WHERE id = ?", (creative_id,)).fetchone())
+
+
+def delete_creative(creative_id: int) -> bool:
+    with _conn() as cx:
+        cur = cx.execute("DELETE FROM creatives WHERE id = ?", (creative_id,))
+        return cur.rowcount > 0
+
+
+def update_creative_thumbnail(creative_id: int, thumbnail_url: str) -> None:
+    with _conn() as cx:
+        cx.execute(
+            "UPDATE creatives SET thumbnail_url = ? WHERE id = ?",
+            (thumbnail_url, creative_id),
+        )
+
+
+def update_creative(
+    creative_id: int,
+    supabase_url: Optional[str] = None,
+    thumbnail_url: Optional[str] = None,
+    manifest_json: Optional[str] = None,
+    local_path: Optional[str] = None,
+) -> Optional[dict]:
+    with _conn() as cx:
+        pairs = []
+        vals = []
+        if supabase_url is not None:
+            pairs.append("supabase_url = ?"); vals.append(supabase_url)
+        if thumbnail_url is not None:
+            pairs.append("thumbnail_url = ?"); vals.append(thumbnail_url)
+        if manifest_json is not None:
+            pairs.append("manifest_json = ?"); vals.append(manifest_json)
+        if local_path is not None:
+            pairs.append("local_path = ?"); vals.append(local_path)
+        if pairs:
+            vals.append(creative_id)
+            cx.execute(f"UPDATE creatives SET {', '.join(pairs)} WHERE id = ?", vals)
+        return _row(cx.execute("SELECT * FROM creatives WHERE id = ?", (creative_id,)).fetchone())
+
+
+# ---- carousels ----
+
+def create_carousel(campaign_id: int, name: str) -> dict:
+    with _conn() as cx:
+        cur = cx.execute(
+            "INSERT INTO carousels (campaign_id, name) VALUES (?, ?)",
+            (campaign_id, name),
+        )
+        return _row(cx.execute("SELECT * FROM carousels WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def list_carousels(campaign_id: int) -> list[dict]:
+    with _conn() as cx:
+        rows = cx.execute(
+            "SELECT * FROM carousels WHERE campaign_id = ? ORDER BY created_at ASC",
+            (campaign_id,),
+        ).fetchall()
+        result = _rows(rows)
+        for c in result:
+            items = get_carousel_items(c["id"])
+            c["items"] = items
+            c["item_count"] = len(items)
+        return result
+
+
+def get_carousel(carousel_id: int) -> Optional[dict]:
+    with _conn() as cx:
+        return _row(cx.execute("SELECT * FROM carousels WHERE id = ?", (carousel_id,)).fetchone())
+
+
+def delete_carousel(carousel_id: int) -> bool:
+    with _conn() as cx:
+        cur = cx.execute("DELETE FROM carousels WHERE id = ?", (carousel_id,))
+        return cur.rowcount > 0
+
+
+def add_carousel_item(carousel_id: int, creative_id: int) -> dict:
+    with _conn() as cx:
+        next_order = cx.execute(
+            "SELECT COALESCE(MAX(order_index), -1) + 1 FROM carousel_items WHERE carousel_id = ?",
+            (carousel_id,),
+        ).fetchone()[0]
+        cur = cx.execute(
+            "INSERT INTO carousel_items (carousel_id, creative_id, order_index) VALUES (?, ?, ?)",
+            (carousel_id, creative_id, next_order),
+        )
+        return _row(cx.execute("SELECT * FROM carousel_items WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def remove_carousel_item(item_id: int) -> bool:
+    with _conn() as cx:
+        cur = cx.execute("DELETE FROM carousel_items WHERE id = ?", (item_id,))
+        return cur.rowcount > 0
+
+
+def reorder_carousel_items(carousel_id: int, ordered_ids: list[int]) -> None:
+    with _conn() as cx:
+        for idx, item_id in enumerate(ordered_ids):
+            cx.execute(
+                "UPDATE carousel_items SET order_index = ? WHERE id = ? AND carousel_id = ?",
+                (idx, item_id, carousel_id),
+            )
+
+
+def get_carousel_items(carousel_id: int) -> list[dict]:
+    with _conn() as cx:
+        rows = cx.execute(
+            """SELECT ci.id as item_id, ci.order_index,
+                      c.id, c.campaign_id, c.type, c.name, c.local_path,
+                      c.supabase_url, c.thumbnail_url, c.width, c.height,
+                      c.figma_node_id, c.format_label, c.manifest_json, c.created_at
+               FROM carousel_items ci
+               JOIN creatives c ON c.id = ci.creative_id
+               WHERE ci.carousel_id = ?
+               ORDER BY ci.order_index ASC""",
+            (carousel_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
