@@ -240,8 +240,8 @@ body { font-family: var(--ui); background: var(--canvas); color: var(--ink);
 .picker-head { display: flex; align-items: center; justify-content: space-between; }
 .picker-head span { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: #9AA0BC; font-weight: 600; }
 .picker-head button { font-size: 11px; color: #9AA0BC; background: transparent; border: none; cursor: pointer; text-decoration: underline; }
-.frame-grid { display: flex; flex-wrap: wrap; gap: 8px; max-height: 360px; overflow-y: auto; padding-right: 2px; }
-.frame-card { width: calc(50% - 4px); border: 2px solid #343A57; border-radius: 8px; overflow: hidden; cursor: pointer; background: #1A1E33; transition: border-color .15s; position: relative; }
+.frame-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 360px; overflow-y: auto; padding-right: 2px; }
+.frame-card { border: 2px solid #343A57; border-radius: 8px; overflow: hidden; cursor: pointer; background: #1A1E33; transition: border-color .15s; position: relative; }
 .frame-card.selected { border-color: var(--accent); background: #0d2620; }
 .frame-card .thumb-wrap { width: 100%; overflow: hidden; background: #23273D; }
 .frame-card .thumb { width: 100%; height: auto; display: block; }
