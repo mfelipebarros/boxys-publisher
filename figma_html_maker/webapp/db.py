@@ -85,6 +85,12 @@ def _migrate() -> None:
             cx.execute("ALTER TABLE copies ADD COLUMN content TEXT DEFAULT ''")
         except sqlite3.OperationalError:
             pass
+    # add boxys_campaign_id to link local campaign to a Boxys (Supabase) campaign
+    with _conn() as cx:
+        try:
+            cx.execute("ALTER TABLE campaigns ADD COLUMN boxys_campaign_id INTEGER DEFAULT NULL")
+        except sqlite3.OperationalError:
+            pass
 
 
 def _conn() -> sqlite3.Connection:
@@ -104,11 +110,11 @@ def _rows(rows: list) -> List[dict]:
 
 # ---- campaigns ----
 
-def create_campaign(name: str, figma_file_key: str = "") -> dict:
+def create_campaign(name: str, figma_file_key: str = "", boxys_campaign_id: Optional[int] = None) -> dict:
     with _conn() as cx:
         cur = cx.execute(
-            "INSERT INTO campaigns (name, figma_file_key) VALUES (?, ?)",
-            (name, figma_file_key),
+            "INSERT INTO campaigns (name, figma_file_key, boxys_campaign_id) VALUES (?, ?, ?)",
+            (name, figma_file_key, boxys_campaign_id),
         )
         return _row(cx.execute("SELECT * FROM campaigns WHERE id = ?", (cur.lastrowid,)).fetchone())
 

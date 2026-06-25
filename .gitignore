@@ -26,3 +26,10 @@ build/
 
 # Cópia antiga
 figma-html-maker-pkg 2/
+
+# Frontend — build e dependências (gerados no CI/Docker)
+maker-frontend/node_modules/
+maker-frontend-dist/
+
+# Arquivos temporários
+"documento teste.docx"

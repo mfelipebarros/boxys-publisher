@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+:root {
+  /* Dark theme — Boxys identity */
+  --canvas: #08090A;
+  --surface: #141516;
+  --surface-raised: #1E1F20;
+  --ink: #FFFFFF;
+  --ink-soft: #D9D9D9;
+  --accent: #0093FF;
+  --accent-deep: #0077D0;
+  --accent-bg: rgba(0, 147, 255, 0.12);
+  --amber: #FF9F0A;
+  --red: #FF453A;
+  --line: #2A2A2A;
+  --muted: #A1A1A1;
+  --ui: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --radius: 10px;
+  --shadow: 0 4px 24px rgba(0,0,0,.5);
+  --topbar-h: 52px;
+  --sidebar-w: 220px;
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; margin: 0; }
+}
+
+body {
+  font-family: var(--ui);
+  background: var(--canvas);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
+}
+
+#root { min-height: 100vh; }

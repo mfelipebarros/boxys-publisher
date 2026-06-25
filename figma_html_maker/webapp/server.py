@@ -29,7 +29,10 @@ from typing import List, Optional
 
 from html.parser import HTMLParser
 
-from fastapi import FastAPI, Form, UploadFile, File
+import time
+
+from fastapi import FastAPI, Form, Request, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -43,13 +46,76 @@ from ..storage.supabase import SupabaseUploader
 from . import db
 
 HERE = Path(__file__).resolve().parent
-STATIC_DIR = HERE / "static"
+# Em produção serve o React build; em dev fallback para o Vue estático
+_REACT_DIST = HERE.parent.parent.parent / "maker-frontend-dist"
+STATIC_DIR = _REACT_DIST if _REACT_DIST.exists() else HERE / "static"
 OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", "./output")).resolve()
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 db._migrate()
 
 app = FastAPI(title="Boxys · Figma → HTML")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---- Auth ----
+# Auth usa o projeto Supabase do frontend Boxys (BOXYS_SUPABASE_URL / BOXYS_SUPABASE_ANON_KEY).
+# O SUPABASE_URL existente aponta para o projeto de storage do figma-html-maker (diferente).
+
+_SB_URL  = os.environ.get("BOXYS_SUPABASE_URL", "").rstrip("/")
+_SB_ANON = os.environ.get("BOXYS_SUPABASE_ANON_KEY", "").strip()
+AUTH_ENABLED = bool(_SB_URL and _SB_ANON)
+
+_token_cache: dict = {}  # {token: (user_dict, expires_at)}
+_CACHE_TTL = 300  # 5 min
+
+
+def _validate_token(token: str) -> Optional[dict]:
+    now = time.time()
+    cached = _token_cache.get(token)
+    if cached:
+        user, exp = cached
+        if now < exp:
+            return user
+    try:
+        r = _requests.get(
+            f"{_SB_URL}/auth/v1/user",
+            headers={"Authorization": f"Bearer {token}", "apikey": _SB_ANON},
+            timeout=5,
+        )
+        if r.status_code != 200:
+            _token_cache.pop(token, None)
+            return None
+        user = r.json()
+        _token_cache[token] = (user, now + _CACHE_TTL)
+        return user
+    except Exception:
+        return None
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    if not AUTH_ENABLED:
+        return await call_next(request)
+    path = request.url.path
+    # Rotas públicas — não requerem auth
+    if not path.startswith("/api/") or path.startswith("/api/auth/") or path == "/api/health":
+        return await call_next(request)
+    raw = request.headers.get("Authorization", "")
+    token = raw[7:] if raw.startswith("Bearer ") else raw
+    if not token:
+        return JSONResponse({"status": "error", "error": "Não autenticado"}, status_code=401)
+    user = _validate_token(token)
+    if not user:
+        return JSONResponse({"status": "error", "error": "Token inválido ou expirado"}, status_code=401)
+    request.state.user = user
+    return await call_next(request)
 
 
 # ---- Pydantic models ----
@@ -89,6 +155,7 @@ class BrowseRequest(BaseModel):
 class CreateCampaignRequest(BaseModel):
     name: str
     figma_file_key: str = ""
+    boxys_campaign_id: Optional[int] = None
 
 
 class UpdateCampaignRequest(BaseModel):
@@ -139,6 +206,25 @@ class UpdateCopyRequest(BaseModel):
     content: Optional[str] = None
 
 
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class PublishBoxyRequest(BaseModel):
+    creative_id: int
+    campaign_id: int           # ID da campanha no Boxys (Supabase)
+    type: str                  # "advertisement" | "social_creative" | "landing_page"
+    title: Optional[str] = None
+    slug: Optional[str] = None  # obrigatório se type == "landing_page"
+
+
+class CreateBoxyCampaignRequest(BaseModel):
+    title: str
+    description: str = ""
+    create_local: bool = True  # também cria campanha no SQLite local
+
+
 # ---- Static / root ----
 
 @app.get("/")
@@ -155,7 +241,241 @@ def health() -> dict:
         "supabase_url": bool(os.environ.get("SUPABASE_URL", "").strip()),
         "supabase_key": bool(os.environ.get("SUPABASE_SERVICE_KEY", "").strip()),
         "bucket": os.environ.get("SUPABASE_BUCKET", "ad-templates"),
+        "auth_enabled": AUTH_ENABLED,
     }
+
+
+# ---- Auth endpoints ----
+
+@app.post("/api/auth/login")
+def auth_login(req: LoginRequest) -> dict:
+    if not AUTH_ENABLED:
+        return JSONResponse({"status": "error", "error": "Auth não configurado (SUPABASE_ANON_KEY ausente)"}, status_code=503)
+    try:
+        r = _requests.post(
+            f"{_SB_URL}/auth/v1/token?grant_type=password",
+            json={"email": req.email, "password": req.password},
+            headers={"apikey": _SB_ANON, "Content-Type": "application/json"},
+            timeout=10,
+        )
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": str(e)}, status_code=503)
+    if r.status_code != 200:
+        data = r.json()
+        msg = data.get("error_description") or data.get("msg") or data.get("error") or "Credenciais inválidas"
+        return JSONResponse({"status": "error", "error": msg}, status_code=401)
+    data = r.json()
+    return {"status": "ok", "access_token": data["access_token"], "user": data.get("user")}
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request) -> dict:
+    user = getattr(request.state, "user", None)
+    if not user:
+        return JSONResponse({"status": "error", "error": "Não autenticado"}, status_code=401)
+    return {"status": "ok", "user": user}
+
+
+# ---- Boxys integration endpoints ----
+
+def _sb_headers(token: str) -> dict:
+    return {
+        "Authorization": f"Bearer {token}",
+        "apikey": _SB_ANON,
+        "Content-Type": "application/json",
+    }
+
+
+def _get_token(request: Request) -> str:
+    raw = request.headers.get("Authorization", "")
+    return raw[7:] if raw.startswith("Bearer ") else raw
+
+
+def _sb_count(nested) -> int:
+    """Extrai contagem do formato [{count: N}] retornado pelo PostgREST."""
+    if isinstance(nested, list) and nested and isinstance(nested[0], dict):
+        return nested[0].get("count", 0)
+    return 0
+
+
+@app.get("/api/boxys/campaigns")
+def boxys_campaigns(request: Request) -> dict:
+    token = _get_token(request)
+    try:
+        r = _requests.get(
+            f"{_SB_URL}/rest/v1/campaign",
+            params={
+                "select": "id,title,image,published,created_at,advertisements(count),social_creatives(count),landing_pages(count)",
+                "parent_id": "is.null",
+                "order": "created_at.desc",
+            },
+            headers=_sb_headers(token),
+            timeout=10,
+        )
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": str(e)}, status_code=503)
+    if r.status_code != 200:
+        return JSONResponse({"status": "error", "error": "Falha ao buscar campanhas"}, status_code=r.status_code)
+
+    campaigns = r.json()
+    for c in campaigns:
+        ads = c.pop("advertisements", [])
+        soc = c.pop("social_creatives", [])
+        lps = c.pop("landing_pages", [])
+        c["asset_count"] = _sb_count(ads) + _sb_count(soc) + _sb_count(lps)
+    return {"status": "ok", "campaigns": campaigns}
+
+
+@app.get("/api/boxys/campaigns/{campaign_id}")
+def boxys_campaign_detail(campaign_id: int, request: Request) -> dict:
+    token = _get_token(request)
+    hdrs = _sb_headers(token)
+
+    def _fetch(table: str, select: str) -> list:
+        try:
+            r = _requests.get(
+                f"{_SB_URL}/rest/v1/{table}",
+                params={"campaign_id": f"eq.{campaign_id}", "select": select, "order": "created_at.desc"},
+                headers=hdrs,
+                timeout=10,
+            )
+            return r.json() if r.status_code == 200 else []
+        except Exception:
+            return []
+
+    try:
+        rc = _requests.get(
+            f"{_SB_URL}/rest/v1/campaign",
+            params={"id": f"eq.{campaign_id}", "select": "id,title,image,published,description,created_at"},
+            headers=hdrs,
+            timeout=10,
+        )
+        campaign = rc.json()[0] if rc.status_code == 200 and rc.json() else None
+    except Exception:
+        campaign = None
+
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+
+    ads  = _fetch("advertisements",   "id,title,format,dimensions,published,created_at,cover_image_url")
+    soc  = _fetch("social_creatives", "id,title,format,published,created_at")
+    lps  = _fetch("landing_pages",    "id,slug,published,created_at,cover_image_url")
+
+    return {
+        "status": "ok",
+        "campaign": campaign,
+        "advertisements": ads,
+        "social_creatives": soc,
+        "landing_pages": lps,
+    }
+
+
+@app.post("/api/boxys/campaigns")
+def boxys_create_campaign(req: CreateBoxyCampaignRequest, request: Request) -> dict:
+    token = _get_token(request)
+    hdrs = {**_sb_headers(token), "Prefer": "return=representation"}
+
+    payload = {
+        "title": req.title,
+        "description": req.description or "",
+        "target_audience_description": "",
+        "usage_instructions": "",
+        "version": "1.0",
+        "image": "",
+        "published": False,
+        "parent_id": None,
+    }
+    try:
+        r = _requests.post(f"{_SB_URL}/rest/v1/campaign", json=payload, headers=hdrs, timeout=15)
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": str(e)}, status_code=503)
+    if r.status_code not in (200, 201):
+        return JSONResponse({"status": "error", "error": f"Supabase: {r.text}"}, status_code=r.status_code)
+
+    created = r.json()
+    boxy_id = (created[0] if isinstance(created, list) else created).get("id")
+
+    local_campaign = None
+    if req.create_local and boxy_id:
+        local_campaign = db.create_campaign(req.title, boxys_campaign_id=boxy_id)
+
+    return {"status": "ok", "boxy_campaign": created[0] if isinstance(created, list) else created, "local_campaign": local_campaign}
+
+
+@app.post("/api/boxys/publish")
+def boxys_publish(req: PublishBoxyRequest, request: Request) -> dict:
+    token = _get_token(request)
+
+    creative = db.get_creative(req.creative_id)
+    if not creative:
+        return JSONResponse({"status": "error", "error": "Criativo não encontrado"}, status_code=404)
+
+    # Lê o HTML do disco (preferível) ou usa a URL do Supabase
+    html_content: Optional[str] = None
+    local = creative.get("local_path")
+    if local:
+        html_path = Path(local)
+        if html_path.exists():
+            html_content = html_path.read_text(encoding="utf-8")
+    if not html_content:
+        url = creative.get("supabase_url", "")
+        if url:
+            html_content = f'<iframe src="{url}" style="width:100%;height:100%;border:none;display:block"></iframe>'
+
+    title = req.title or creative.get("name") or "Criativo"
+    dimensions = f"{creative.get('width', 0)}x{creative.get('height', 0)}"
+
+    headers = {**_sb_headers(token), "Prefer": "return=representation"}
+
+    if req.type == "advertisement":
+        payload = {
+            "campaign_id": req.campaign_id,
+            "title": title,
+            "format": "html",
+            "html_content": html_content,
+            "dimensions": dimensions,
+            "published": False,
+        }
+        table = "advertisements"
+    elif req.type == "social_creative":
+        payload = {
+            "campaign_id": req.campaign_id,
+            "title": title,
+            "format": "html",
+            "html_content": html_content,
+            "published": False,
+        }
+        table = "social_creatives"
+    elif req.type == "landing_page":
+        if not req.slug:
+            return JSONResponse({"status": "error", "error": "slug é obrigatório para landing pages"}, status_code=400)
+        payload = {
+            "campaign_id": req.campaign_id,
+            "slug": req.slug,
+            "html": html_content or "",
+            "published": False,
+        }
+        table = "landing_pages"
+    else:
+        return JSONResponse({"status": "error", "error": f"Tipo inválido: {req.type}"}, status_code=400)
+
+    try:
+        r = _requests.post(
+            f"{_SB_URL}/rest/v1/{table}",
+            json=payload,
+            headers=headers,
+            timeout=15,
+        )
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": str(e)}, status_code=503)
+
+    if r.status_code not in (200, 201):
+        return JSONResponse({"status": "error", "error": f"Supabase: {r.text}"}, status_code=r.status_code)
+
+    created = r.json()
+    if isinstance(created, list):
+        created = created[0] if created else {}
+    return {"status": "ok", "record": created}
 
 
 # ---- Prompts ----
@@ -629,7 +949,7 @@ def list_campaigns() -> JSONResponse:
 
 @app.post("/api/campaigns")
 def create_campaign(req: CreateCampaignRequest) -> JSONResponse:
-    campaign = db.create_campaign(req.name, req.figma_file_key)
+    campaign = db.create_campaign(req.name, req.figma_file_key, req.boxys_campaign_id)
     return JSONResponse({"status": "ok", "campaign": campaign})
 
 
@@ -1144,3 +1464,8 @@ def export_zip(req: ZipExportRequest) -> StreamingResponse:
 
 # ---- Preview static mount ----
 app.mount("/preview", StaticFiles(directory=str(OUTPUT_DIR), html=True), name="preview")
+
+# ---- React frontend assets (produção) ----
+_assets_dir = STATIC_DIR / "assets"
+if _assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="react-assets")

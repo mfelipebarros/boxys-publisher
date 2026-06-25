@@ -34,6 +34,7 @@ class SupabaseConfig:
     url: str          # https://<projeto>.supabase.co
     service_key: str  # service_role key (somente no servidor/CI, nunca no front)
     bucket: str       # ex: "ad-templates"
+    anon_key: str = ""  # anon/public key — necessário para validar JWTs do frontend
 
     @classmethod
     def from_env(cls) -> "SupabaseConfig":
@@ -41,4 +42,5 @@ class SupabaseConfig:
             url=_require("SUPABASE_URL").rstrip("/"),
             service_key=_require("SUPABASE_SERVICE_KEY"),
             bucket=os.environ.get("SUPABASE_BUCKET", "ad-templates").strip(),
+            anon_key=os.environ.get("SUPABASE_ANON_KEY", "").strip(),
         )
