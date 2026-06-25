@@ -4,25 +4,30 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { Button } from '../ui/Button'
 import { ImportHtmlModal } from './ImportHtmlModal'
+import { PublishToBoxysModal } from './PublishToBoxysModal'
 import type { LocalCreative, LocalCopy } from '../../types'
 
 interface Props {
   campaignId: string
   creatives: LocalCreative[]
   copies: LocalCopy[]
+  boxysCampaignId?: number | null
 }
 
 function CreativeCard({
   creative,
   copies,
   campaignId,
+  boxysCampaignId,
 }: {
   creative: LocalCreative
   copies: LocalCopy[]
   campaignId: string
+  boxysCampaignId?: number | null
 }) {
   const qc = useQueryClient()
   const [showCopyPicker, setShowCopyPicker] = useState(false)
+  const [showPublish, setShowPublish] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   const assignMut = useMutation({
@@ -111,7 +116,8 @@ function CreativeCard({
       </div>
 
       {/* Actions */}
-      <div className="px-3 pb-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="px-3 pb-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-wrap">
+        <Button size="sm" variant="secondary" onClick={() => setShowPublish(true)}>↑ Publicar</Button>
         <Button size="sm" variant="secondary" onClick={handleDownload}>↓</Button>
         <Button size="sm" variant="danger" onClick={handleDelete} disabled={deleting}>
           {deleting ? '…' : '×'}
@@ -122,11 +128,22 @@ function CreativeCard({
       {showCopyPicker && (
         <div className="fixed inset-0 z-10" onClick={() => setShowCopyPicker(false)} />
       )}
+
+      {showPublish && (
+        <PublishToBoxysModal
+          creativeId={creative.id}
+          creativeName={creative.name}
+          copies={copies}
+          defaultCopyId={creative.copy_id}
+          defaultCampaignId={boxysCampaignId}
+          onClose={() => setShowPublish(false)}
+        />
+      )}
     </div>
   )
 }
 
-export function CreativesTab({ campaignId, creatives, copies }: Props) {
+export function CreativesTab({ campaignId, creatives, copies, boxysCampaignId }: Props) {
   const qc = useQueryClient()
   const [showImport, setShowImport] = useState(false)
   const [draggingMedia, setDraggingMedia] = useState(false)
@@ -191,7 +208,7 @@ export function CreativesTab({ campaignId, creatives, copies }: Props) {
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {creatives.map(c => (
-            <CreativeCard key={c.id} creative={c} copies={copies} campaignId={campaignId} />
+            <CreativeCard key={c.id} creative={c} copies={copies} campaignId={campaignId} boxysCampaignId={boxysCampaignId} />
           ))}
         </div>
       )}

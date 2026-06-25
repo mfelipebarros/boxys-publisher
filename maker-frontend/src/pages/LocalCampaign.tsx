@@ -7,6 +7,7 @@ import { CreativesTab } from '../components/campaign/CreativesTab'
 import { CopiesTab } from '../components/campaign/CopiesTab'
 import { CarouselsTab } from '../components/campaign/CarouselsTab'
 import { ExportTab } from '../components/campaign/ExportTab'
+import { SearchTab } from '../components/campaign/SearchTab'
 import type { LocalCampaign, LocalCreative, LocalCopy, LocalCarousel } from '../types'
 
 interface LocalCampaignDetailResponse {
@@ -20,6 +21,7 @@ const TABS = [
   { key: 'creatives', label: 'Criativos' },
   { key: 'copies', label: 'Copies' },
   { key: 'carousels', label: 'Carrosseis' },
+  { key: 'search', label: 'Search Ads' },
   { key: 'export', label: 'Export ZIP' },
 ] as const
 
@@ -54,6 +56,7 @@ export function LocalCampaignPage() {
     creatives: creatives.length,
     copies: copies.length,
     carousels: carousels.length,
+    search: undefined,
     export: undefined,
   }
 
@@ -99,13 +102,16 @@ export function LocalCampaignPage() {
 
       {/* Tab content */}
       {tab === 'creatives' && (
-        <CreativesTab campaignId={id!} creatives={creatives} copies={copies} />
+        <CreativesTab campaignId={id!} creatives={creatives} copies={copies} boxysCampaignId={campaign.boxys_campaign_id} />
       )}
       {tab === 'copies' && (
         <CopiesTab campaignId={id!} copies={copies} />
       )}
       {tab === 'carousels' && (
         <CarouselsTab campaignId={id!} carousels={carousels} creatives={creatives} />
+      )}
+      {tab === 'search' && (
+        <SearchTab campaignId={id!} />
       )}
       {tab === 'export' && (
         <ExportTab

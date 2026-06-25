@@ -9,6 +9,7 @@ import { CreativesTab } from '../components/campaign/CreativesTab'
 import { CopiesTab } from '../components/campaign/CopiesTab'
 import { CarouselsTab } from '../components/campaign/CarouselsTab'
 import { ExportTab } from '../components/campaign/ExportTab'
+import { SearchTab } from '../components/campaign/SearchTab'
 import type {
   BoxyCampaign, BoxyAdvertisement, BocySocialCreative, BoxyLandingPage,
   LocalCampaign, LocalCreative, LocalCopy, LocalCarousel,
@@ -29,13 +30,14 @@ interface LocalDetailResponse {
 }
 
 type PublishType = 'advertisement' | 'social_creative' | 'landing_page'
-type TabKey = 'boxys' | 'creatives' | 'copies' | 'carousels' | 'export'
+type TabKey = 'boxys' | 'creatives' | 'copies' | 'carousels' | 'search' | 'export'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'boxys', label: 'Publicações Boxys' },
   { key: 'creatives', label: 'Criativos' },
   { key: 'copies', label: 'Copies' },
   { key: 'carousels', label: 'Carrosseis' },
+  { key: 'search', label: 'Search Ads' },
   { key: 'export', label: 'Export ZIP' },
 ]
 
@@ -337,13 +339,16 @@ export function BoxyCampaignPage() {
         />
       )}
       {tab === 'creatives' && localCampaignId && (
-        <CreativesTab campaignId={localCampaignId} creatives={localCreatives} copies={localCopies} />
+        <CreativesTab campaignId={localCampaignId} creatives={localCreatives} copies={localCopies} boxysCampaignId={campaign.id} />
       )}
       {tab === 'copies' && localCampaignId && (
         <CopiesTab campaignId={localCampaignId} copies={localCopies} />
       )}
       {tab === 'carousels' && localCampaignId && (
         <CarouselsTab campaignId={localCampaignId} carousels={localCarousels} creatives={localCreatives} />
+      )}
+      {tab === 'search' && localCampaignId && (
+        <SearchTab campaignId={localCampaignId} />
       )}
       {tab === 'export' && localCampaignId && (
         <ExportTab campaignId={localCampaignId} creatives={localCreatives} carousels={localCarousels} copies={localCopies} />

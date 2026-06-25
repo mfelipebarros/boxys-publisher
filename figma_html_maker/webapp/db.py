@@ -91,6 +91,12 @@ def _migrate() -> None:
             cx.execute("ALTER TABLE campaigns ADD COLUMN boxys_campaign_id INTEGER DEFAULT NULL")
         except sqlite3.OperationalError:
             pass
+    # add search_ads_json to store Google Search Ads copy per campaign
+    with _conn() as cx:
+        try:
+            cx.execute("ALTER TABLE campaigns ADD COLUMN search_ads_json TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
 
 
 def _conn() -> sqlite3.Connection:
@@ -148,6 +154,28 @@ def update_campaign(campaign_id: int, name: Optional[str] = None, figma_file_key
                 (figma_file_key, campaign_id),
             )
         return _row(cx.execute("SELECT * FROM campaigns WHERE id = ?", (campaign_id,)).fetchone())
+
+
+def get_search_ads(campaign_id: int) -> dict:
+    with _conn() as cx:
+        row = cx.execute("SELECT search_ads_json FROM campaigns WHERE id = ?", (campaign_id,)).fetchone()
+        if not row or not row["search_ads_json"]:
+            return {"titles": "", "descriptions": "", "keywords": ""}
+        import json
+        try:
+            return json.loads(row["search_ads_json"])
+        except Exception:
+            return {"titles": "", "descriptions": "", "keywords": ""}
+
+
+def update_search_ads(campaign_id: int, data: dict) -> bool:
+    import json
+    with _conn() as cx:
+        cur = cx.execute(
+            "UPDATE campaigns SET search_ads_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (json.dumps(data), campaign_id),
+        )
+        return cur.rowcount > 0
 
 
 def delete_campaign(campaign_id: int) -> bool:

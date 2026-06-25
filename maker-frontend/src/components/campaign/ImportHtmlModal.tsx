@@ -19,10 +19,16 @@ interface ParsedMeta {
   height: number
 }
 
+interface ImageInfo {
+  url: string
+  in_supabase: boolean
+}
+
 interface ParseResponse {
   status: string
   meta: ParsedMeta
   filename: string
+  images: ImageInfo[]
 }
 
 export function ImportHtmlModal({ campaignId, onClose }: Props) {
@@ -84,6 +90,10 @@ export function ImportHtmlModal({ campaignId, onClose }: Props) {
     : ''
 
   if (parsed && meta) {
+    const total = parsed.images.length
+    const inSupabase = parsed.images.filter(i => i.in_supabase).length
+    const toUpload = total - inSupabase
+
     return (
       <Modal
         title="Confirmar import"
@@ -92,16 +102,41 @@ export function ImportHtmlModal({ campaignId, onClose }: Props) {
           <ModalFooter
             onClose={onClose}
             onConfirm={() => importMut.mutate()}
-            confirmLabel="Importar"
+            confirmLabel={toUpload > 0 ? `↑ Importar e subir ${toUpload} imagem${toUpload !== 1 ? 'ns' : ''}` : 'Importar'}
             loading={importMut.isPending}
           />
         }
       >
         <div className="flex flex-col gap-4">
-          <p className="text-xs text-[var(--muted)]">
-            Arquivo: <span className="font-mono text-[var(--ink-soft)]">{parsed.filename}</span>
-            {adSize && <span className="ml-2 text-[var(--accent)]">{adSize}</span>}
-          </p>
+          {/* Arquivo + tamanho */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-xs text-[var(--muted)]">{parsed.filename}</span>
+            {adSize && (
+              <span className="text-xs font-semibold text-[var(--accent)] bg-[var(--accent-bg)] px-2 py-0.5 rounded">
+                {adSize}
+              </span>
+            )}
+          </div>
+
+          {/* Image checker */}
+          {total === 0 ? (
+            <p className="text-xs text-[var(--muted)] bg-[var(--surface-raised)] rounded-lg px-3 py-2">
+              Nenhuma imagem encontrada no HTML.
+            </p>
+          ) : (
+            <div className="text-xs bg-[var(--surface-raised)] rounded-lg px-3 py-2 flex items-center gap-1.5">
+              <span className="text-[var(--muted)]">
+                {total} imagem{total !== 1 ? 'ns' : ''} encontrada{total !== 1 ? 's' : ''} —
+              </span>
+              <span className="text-green-400">{inSupabase} já no Supabase</span>
+              {toUpload > 0 && (
+                <>
+                  <span className="text-[var(--muted)]">,</span>
+                  <span className="font-semibold text-[var(--amber)]">{toUpload} será{toUpload !== 1 ? 'ão' : ''} importada{toUpload !== 1 ? 's' : ''}</span>
+                </>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-[var(--muted)] mb-1.5">Título</label>
@@ -114,14 +149,6 @@ export function ImportHtmlModal({ campaignId, onClose }: Props) {
           <div>
             <label className="block text-xs font-semibold text-[var(--muted)] mb-1.5">Mensagem / CTA</label>
             <Input value={meta.message} onChange={e => setMeta({ ...meta, message: e.target.value })} placeholder="Mensagem ou CTA" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-[var(--muted)] mb-1.5">Formato / Tamanho</label>
-            <Input
-              value={meta.format_label || (meta.width ? `${meta.width}×${meta.height}` : '')}
-              disabled
-              className="opacity-60"
-            />
           </div>
         </div>
         {error && <p className="text-xs text-[var(--red)] mt-3">{error}</p>}

@@ -422,7 +422,11 @@ def boxys_publish(req: PublishBoxyRequest, request: Request) -> dict:
         if url:
             html_content = f'<iframe src="{url}" style="width:100%;height:100%;border:none;display:block"></iframe>'
 
-    title = req.title or creative.get("name") or "Criativo"
+    # Resolve title/desc/message: explicit > linked copy > filename
+    linked_copy = db.get_copy(creative["copy_id"]) if creative.get("copy_id") else None
+    title = req.title or (linked_copy.get("title") if linked_copy else None) or creative.get("name") or "Criativo"
+    description = (linked_copy.get("description") or "") if linked_copy else ""
+    meta_message = (linked_copy.get("message") or "") if linked_copy else ""
     dimensions = f"{creative.get('width', 0)}x{creative.get('height', 0)}"
 
     headers = {**_sb_headers(token), "Prefer": "return=representation"}
@@ -431,6 +435,8 @@ def boxys_publish(req: PublishBoxyRequest, request: Request) -> dict:
         payload = {
             "campaign_id": req.campaign_id,
             "title": title,
+            "description": description or None,
+            "meta_message": meta_message or None,
             "format": "html",
             "html_content": html_content,
             "dimensions": dimensions,
@@ -441,6 +447,7 @@ def boxys_publish(req: PublishBoxyRequest, request: Request) -> dict:
         payload = {
             "campaign_id": req.campaign_id,
             "title": title,
+            "description": description or None,
             "format": "html",
             "html_content": html_content,
             "published": False,
@@ -986,6 +993,28 @@ def delete_campaign(campaign_id: int) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
+# ---- Search Ads ----
+
+class SearchAdsPayload(BaseModel):
+    titles: str = ""
+    descriptions: str = ""
+    keywords: str = ""
+
+
+@app.get("/api/campaigns/{campaign_id}/search")
+def get_search_ads(campaign_id: int) -> JSONResponse:
+    data = db.get_search_ads(campaign_id)
+    return JSONResponse({"status": "ok", "search": data})
+
+
+@app.put("/api/campaigns/{campaign_id}/search")
+def update_search_ads(campaign_id: int, req: SearchAdsPayload) -> JSONResponse:
+    ok = db.update_search_ads(campaign_id, {"titles": req.titles, "descriptions": req.descriptions, "keywords": req.keywords})
+    if not ok:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+    return JSONResponse({"status": "ok"})
+
+
 # ---- Creatives ----
 
 class UpdateCreativeCopyRequest(BaseModel):
@@ -1289,6 +1318,22 @@ async def import_html_endpoint(
             if cp["name"] == meta_copy_ref:
                 matched_copy_id = cp["id"]
                 break
+
+    # Auto-create copy from meta tag data when no copy was matched
+    if matched_copy_id is None:
+        final_title = title or parsed.get("title", "")
+        final_desc = desc or parsed.get("desc", "")
+        final_message = message or parsed.get("message", "")
+        if final_title or final_desc or final_message:
+            new_copy = db.create_copy(
+                campaign_id=campaign_id,
+                name=stem_name,
+                title=final_title,
+                description=final_desc,
+                message=final_message,
+                type="criativo",
+            )
+            matched_copy_id = new_copy["id"]
 
     creative = db.create_creative(
         campaign_id=campaign_id,
