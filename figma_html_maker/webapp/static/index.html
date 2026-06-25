@@ -556,6 +556,109 @@ textarea.form-input { resize: vertical; min-height: 72px; line-height: 1.5; }
 }
 .copy-action-label { flex: 1; color: var(--fg); font-weight: 500; }
 
+/* Home sections */
+.home-section-header {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 0 0 14px; margin-bottom: 4px;
+}
+.home-section-header h2 { font-size: 15px; font-weight: 600; color: var(--ink); }
+.home-section-header .section-count {
+  font-size: 11px; font-family: var(--mono); color: var(--muted);
+}
+.home-section { margin-bottom: 36px; }
+/* Boxy campaign badge on folder card */
+.boxy-card-badge {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--accent); color: #062018;
+  font-size: 9px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 6px; border-radius: 4px; text-transform: uppercase;
+  pointer-events: none;
+}
+/* Boxy campaign view */
+.boxy-campaign-header {
+  display: flex; align-items: flex-start; gap: 20px; margin-bottom: 28px;
+}
+.boxy-campaign-thumb {
+  width: 72px; height: 72px; border-radius: 10px; object-fit: cover;
+  background: var(--canvas); flex: none; border: 1px solid var(--line);
+}
+.boxy-campaign-thumb-ph {
+  width: 72px; height: 72px; border-radius: 10px; background: var(--canvas);
+  flex: none; border: 1px solid var(--line); display: flex; align-items: center;
+  justify-content: center; font-size: 24px;
+}
+.boxy-campaign-info h1 { font-size: 20px; margin-bottom: 6px; }
+.boxy-campaign-info .meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; }
+.asset-section { margin-bottom: 28px; }
+.asset-section-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.asset-section-title span { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-soft); }
+.asset-row { display: flex; flex-direction: column; gap: 6px; }
+.asset-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+}
+.asset-item-icon {
+  width: 32px; height: 32px; border-radius: 6px; background: var(--canvas);
+  flex: none; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-family: var(--mono); color: var(--muted);
+  overflow: hidden;
+}
+.asset-item-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+.asset-item-info { flex: 1; min-width: 0; }
+.asset-item-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asset-item-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.asset-status { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; flex: none; }
+.asset-status.pub { background: #D4F5EB; color: #0B7D60; }
+.asset-status.draft { background: #FFF3E0; color: #B06C00; }
+.asset-item-actions { display: flex; gap: 6px; flex: none; }
+/* Campaign create type toggle */
+.create-type-toggle {
+  display: flex; gap: 8px; margin-bottom: 16px;
+}
+.create-type-btn {
+  flex: 1; padding: 8px; border-radius: 8px; border: 1.5px solid var(--line);
+  background: var(--surface); cursor: pointer; font-family: var(--ui);
+  font-size: 12px; font-weight: 600; color: var(--muted); text-align: center;
+  transition: all .15s;
+}
+.create-type-btn.active {
+  border-color: var(--accent); background: var(--accent-bg); color: var(--accent-deep);
+}
+
+/* Login screen */
+#login-screen {
+  position: fixed; inset: 0; background: var(--ink); z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+}
+.login-box {
+  background: var(--surface); border-radius: var(--radius); padding: 40px 44px;
+  width: 100%; max-width: 400px; box-shadow: 0 8px 40px rgba(0,0,0,.4);
+}
+.login-brand { display: flex; align-items: baseline; gap: 9px; margin-bottom: 32px; }
+.login-brand b { font-weight: 700; font-size: 22px; color: var(--ink); }
+.login-brand span { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.login-box h2 { font-size: 17px; font-weight: 600; margin-bottom: 24px; color: var(--ink); }
+.login-box .form-field { margin-bottom: 16px; }
+.login-box .form-field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.login-box .form-input { width: 100%; }
+.login-error { color: var(--red); font-size: 12px; margin-top: 12px; min-height: 18px; }
+.login-submit { width: 100%; margin-top: 8px; padding: 11px; font-size: 14px; }
+/* User chip in topbar */
+.user-chip {
+  display: flex; align-items: center; gap: 8px; font-size: 11px;
+  font-family: var(--mono); color: #9AA0BC; padding: 4px 4px 4px 10px;
+  border-radius: 7px; background: #1F2336; border: 1px solid #2E3450;
+}
+.user-chip .logout-btn {
+  background: transparent; border: none; color: #9AA0BC; cursor: pointer;
+  font-size: 11px; padding: 4px 8px; border-radius: 5px; font-family: var(--mono);
+  transition: color .15s, background .15s;
+}
+.user-chip .logout-btn:hover { background: #2E3450; color: #fff; }
+
 /* Toast */
 .toast {
   position: fixed;
@@ -578,12 +681,34 @@ textarea.form-input { resize: vertical; min-height: 72px; line-height: 1.5; }
 </head>
 <body>
 
+<!-- Login screen (shown when not authenticated) -->
+<div id="login-screen" style="display:none">
+  <div class="login-box">
+    <div class="login-brand"><b>Boxys</b><span>figma → html</span></div>
+    <h2>Entrar</h2>
+    <div class="form-field">
+      <label>E-mail</label>
+      <input class="form-input" id="login-email" type="email" placeholder="seu@email.com" autocomplete="email">
+    </div>
+    <div class="form-field">
+      <label>Senha</label>
+      <input class="form-input" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <button class="btn-primary login-submit" id="login-submit">Entrar</button>
+  </div>
+</div>
+
 <nav id="topbar">
   <div class="brand"><b>Boxys</b><span>figma → html</span></div>
   <input id="topbar-search" type="search" placeholder="Buscar campanhas e criativos…">
   <div class="topbar-right">
     <div class="status-chip" id="cfg">
       <span class="dot off"></span><span id="cfgtext">Verificando…</span>
+    </div>
+    <div class="user-chip" id="user-chip" style="display:none">
+      <span id="user-email-text"></span>
+      <button class="logout-btn" onclick="logout()">Sair</button>
     </div>
     <button class="btn-primary" id="btn-new-campaign">+ Nova campanha</button>
   </div>
@@ -599,7 +724,12 @@ textarea.form-input { resize: vertical; min-height: 72px; line-height: 1.5; }
     </div>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">
-      <div class="sidebar-label">Campanhas</div>
+      <div class="sidebar-label">Boxys</div>
+      <div id="sb-boxy-campaigns"></div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Publisher</div>
       <div id="sb-campaigns"></div>
     </div>
   </aside>
@@ -630,6 +760,10 @@ const state = {
   selectedCampaigns: [],
   selectedCopies: [],
   selectionType: null,
+  authToken: null,
+  currentUser: null,
+  authEnabled: false,
+  boxyCampaigns: [],
 };
 
 // ===== UTILS =====
@@ -643,10 +777,15 @@ function esc(s) {
   return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+function _authHeader() {
+  return state.authToken ? { "Authorization": `Bearer ${state.authToken}` } : {};
+}
+
 async function api(method, path, body) {
-  const opts = { method, headers: {} };
+  const opts = { method, headers: { ..._authHeader() } };
   if (body) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
   const r = await fetch(path, opts);
+  if (r.status === 401 && state.authEnabled) { logout(); return { status: "error", error: "Sessão expirada" }; }
   return r.json();
 }
 
@@ -655,23 +794,102 @@ function navigate(hash) { window.location.hash = hash; }
 // ===== HEALTH =====
 async function checkHealth() {
   try {
-    const h = await api("GET", "/api/health");
+    const h = await fetch("/api/health").then(r => r.json());
+    state.authEnabled = !!h.auth_enabled;
     const all = h.figma_token && h.supabase_url && h.supabase_key;
     state.backendOk = true;
     document.querySelector("#cfg .dot").className = "dot " + (all ? "on" : "off");
     document.getElementById("cfgtext").innerHTML = all
       ? `bucket <b>${esc(h.bucket)}</b>` : "Faltam credenciais";
+    return h;
   } catch(e) {
     state.backendOk = false;
     document.getElementById("cfgtext").textContent = "Backend offline";
+    return {};
   }
 }
+
+// ===== AUTH =====
+function showLoginScreen() {
+  document.getElementById("login-screen").style.display = "flex";
+  document.getElementById("layout").style.display = "none";
+  document.getElementById("topbar").style.display = "none";
+  setTimeout(() => document.getElementById("login-email").focus(), 50);
+}
+
+function showApp() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("layout").style.display = "flex";
+  document.getElementById("topbar").style.display = "flex";
+  const chip = document.getElementById("user-chip");
+  if (state.currentUser) {
+    chip.style.display = "flex";
+    document.getElementById("user-email-text").textContent = state.currentUser.email || state.currentUser.id || "";
+  }
+}
+
+function logout() {
+  state.authToken = null;
+  state.currentUser = null;
+  localStorage.removeItem("boxys_token");
+  if (state.authEnabled) showLoginScreen();
+}
+
+async function tryAutoLogin() {
+  const token = localStorage.getItem("boxys_token");
+  if (!token) return false;
+  state.authToken = token;
+  const r = await api("GET", "/api/auth/me");
+  if (r.status === "ok") {
+    state.currentUser = r.user;
+    return true;
+  }
+  state.authToken = null;
+  localStorage.removeItem("boxys_token");
+  return false;
+}
+
+document.getElementById("login-submit").addEventListener("click", async () => {
+  const email = document.getElementById("login-email").value.trim();
+  const password = document.getElementById("login-password").value;
+  const errEl = document.getElementById("login-error");
+  const btn = document.getElementById("login-submit");
+  if (!email || !password) { errEl.textContent = "Preencha e-mail e senha."; return; }
+  btn.disabled = true; btn.textContent = "Entrando…";
+  errEl.textContent = "";
+  const r = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  }).then(res => res.json());
+  if (r.status === "ok") {
+    state.authToken = r.access_token;
+    state.currentUser = r.user;
+    localStorage.setItem("boxys_token", r.access_token);
+    showApp();
+    loadCampaigns().then(route);
+  } else {
+    errEl.textContent = r.error || "Erro ao fazer login.";
+    btn.disabled = false; btn.textContent = "Entrar";
+  }
+});
+
+document.getElementById("login-password").addEventListener("keydown", e => {
+  if (e.key === "Enter") document.getElementById("login-submit").click();
+});
 
 // ===== CAMPAIGNS API =====
 async function loadCampaigns() {
   try {
-    const data = await api("GET", "/api/campaigns");
-    state.campaigns = data.campaigns || [];
+    const boxyPromise = state.authEnabled
+      ? api("GET", "/api/boxys/campaigns")
+      : Promise.resolve({ campaigns: [] });
+    const [local, boxy] = await Promise.all([
+      api("GET", "/api/campaigns"),
+      boxyPromise,
+    ]);
+    state.campaigns = local.campaigns || [];
+    state.boxyCampaigns = boxy.campaigns || [];
     renderSidebar();
   } catch(e) {}
 }
@@ -684,10 +902,11 @@ async function loadCampaign(id) {
 // ===== SIDEBAR =====
 function renderSidebar() {
   const hash = window.location.hash || "#/";
-  const container = document.getElementById("sb-campaigns");
   const allItem = document.getElementById("sb-all");
   allItem.className = "sidebar-item" + (hash === "#/" ? " active" : "");
 
+  // Publisher campaigns (SQLite)
+  const container = document.getElementById("sb-campaigns");
   container.innerHTML = "";
   (state.campaigns || []).forEach(c => {
     const active = hash === `#/campaigns/${c.id}`;
@@ -697,6 +916,25 @@ function renderSidebar() {
     </a>`);
     container.appendChild(item);
   });
+  if (!(state.campaigns || []).length) {
+    container.innerHTML = `<div style="padding:4px 18px;font-size:11px;color:var(--muted)">Nenhuma campanha</div>`;
+  }
+
+  // Boxys campaigns (Supabase)
+  const boxyContainer = document.getElementById("sb-boxy-campaigns");
+  if (!boxyContainer) return;
+  boxyContainer.innerHTML = "";
+  (state.boxyCampaigns || []).forEach(c => {
+    const active = hash === `#/boxys/${c.id}`;
+    const item = el(`<a class="sidebar-item${active ? " active" : ""}" href="#/boxys/${c.id}">
+      <span class="si-name">${esc(c.title)}</span>
+      <span class="si-count">${c.asset_count || 0}</span>
+    </a>`);
+    boxyContainer.appendChild(item);
+  });
+  if (!(state.boxyCampaigns || []).length) {
+    boxyContainer.innerHTML = `<div style="padding:4px 18px;font-size:11px;color:var(--muted)">Nenhuma campanha</div>`;
+  }
 }
 
 // ===== ROUTER =====
@@ -717,6 +955,8 @@ function route() {
   if (mCopyNew) { renderCopyEditor(parseInt(mCopyNew[1]), null); return; }
 
   if (hash === "#/") { renderHome(); return; }
+  const mBoxy = hash.match(/^#\/boxys\/(\d+)/);
+  if (mBoxy) { renderBoxyCampaign(parseInt(mBoxy[1])); return; }
   const m = hash.match(/^#\/campaigns\/(\d+)/);
   if (m) renderCampaign(parseInt(m[1]));
   else renderHome();
@@ -730,29 +970,57 @@ async function renderHome() {
 
   main.innerHTML = `
     <div class="view-header">
-      <div><h1>Campanhas<span class="count" id="camp-count"></span></h1></div>
+      <div><h1>Campanhas</h1></div>
       <div class="header-actions">
         <button class="btn-primary" onclick="showCreateCampaignModal()">+ Nova campanha</button>
       </div>
     </div>
-    <div class="item-grid" id="home-grid">
-      <div style="grid-column:1/-1;padding:32px;text-align:center;color:var(--muted)">Carregando…</div>
+    <div id="home-content">
+      <div style="padding:32px;text-align:center;color:var(--muted)">Carregando…</div>
     </div>`;
 
   await loadCampaigns();
-  const grid = document.getElementById("home-grid");
-  if (!grid) return;
+  renderHomeContent();
+}
 
-  const filtered = filterItems(state.campaigns, "name");
-  document.getElementById("camp-count").textContent = ` · ${filtered.length}`;
+function renderHomeContent() {
+  const main = document.getElementById("home-content");
+  if (!main) return;
 
-  if (!filtered.length) {
-    grid.innerHTML = `<div class="empty-state"><b>Nenhuma campanha ainda</b><span>Clique em "Nova campanha" para começar.</span></div>`;
-    return;
+  const q = (document.getElementById("topbar-search")?.value || "").toLowerCase().trim();
+  const filteredLocal = (state.campaigns || []).filter(c => !q || c.name.toLowerCase().includes(q));
+  const filteredBoxy  = (state.boxyCampaigns || []).filter(c => !q || (c.title || "").toLowerCase().includes(q));
+
+  let html = "";
+
+  // Boxys section
+  html += `<div class="home-section">
+    <div class="home-section-header">
+      <h2>Campanhas Boxys</h2>
+      <span class="section-count">${filteredBoxy.length} campanha${filteredBoxy.length !== 1 ? "s" : ""}</span>
+    </div>
+    <div class="item-grid" id="home-boxy-grid">`;
+  if (!filteredBoxy.length) {
+    html += `<div class="empty-state" style="grid-column:1/-1"><b>${state.authEnabled ? "Nenhuma campanha" : "Auth desativado"}</b><span>${state.authEnabled ? "Nenhuma campanha encontrada no Boxys." : "Configure BOXYS_SUPABASE_ANON_KEY para ver campanhas do app."}</span></div>`;
   }
+  html += `</div></div>`;
 
-  grid.innerHTML = "";
-  filtered.forEach(c => grid.appendChild(makeFolderCard(c)));
+  // Publisher section
+  html += `<div class="home-section">
+    <div class="home-section-header">
+      <h2>Publisher (local)</h2>
+      <span class="section-count">${filteredLocal.length} campanha${filteredLocal.length !== 1 ? "s" : ""}</span>
+    </div>
+    <div class="item-grid" id="home-local-grid">`;
+  if (!filteredLocal.length) {
+    html += `<div class="empty-state" style="grid-column:1/-1"><b>Nenhuma campanha local</b><span>Clique em "+ Nova campanha" para criar uma no publisher.</span></div>`;
+  }
+  html += `</div></div>`;
+
+  main.innerHTML = html;
+
+  filteredBoxy.forEach(c => document.getElementById("home-boxy-grid").appendChild(makeBoxyFolderCard(c)));
+  filteredLocal.forEach(c => document.getElementById("home-local-grid").appendChild(makeFolderCard(c)));
 }
 
 function makeFolderCard(campaign) {
@@ -801,6 +1069,156 @@ function makeFolderCard(campaign) {
     ]);
   });
   return card;
+}
+
+function makeBoxyFolderCard(campaign) {
+  const img = campaign.image;
+  const previewHtml = img
+    ? `<img class="folder-thumb" src="${esc(img)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:0">`
+    : `<svg class="folder-svg" viewBox="0 0 56 56" fill="none">
+        <rect x="2" y="14" width="52" height="36" rx="5" fill="#0FA47F" opacity=".18"/>
+        <path d="M2 20a5 5 0 0 1 5-5h14l4 5H49a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V20Z" fill="#0FA47F" opacity=".35"/>
+        <path d="M2 22a5 5 0 0 1 5-5h14l4 5H49a5 5 0 0 1 5 5v14a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V22Z" fill="#0FA47F"/>
+      </svg>`;
+  const pubBadge = campaign.published
+    ? `<span class="published-badge" style="position:absolute;bottom:8px;left:8px">Publicado</span>`
+    : `<span class="draft-badge" style="position:absolute;bottom:8px;left:8px">Rascunho</span>`;
+
+  const card = el(`<div class="item-card" data-id="${campaign.id}" style="position:relative">
+    <div class="boxy-card-badge">Boxys</div>
+    <div class="item-preview folder-preview" style="overflow:hidden">
+      ${previewHtml}
+      ${pubBadge}
+    </div>
+    <div class="item-label">
+      <div class="item-name">${esc(campaign.title)}</div>
+      <div class="item-meta">${campaign.asset_count || 0} asset${campaign.asset_count !== 1 ? "s" : ""}</div>
+    </div>
+    <button class="item-menu">⋯</button>
+  </div>`);
+
+  card.addEventListener("click", e => {
+    if (e.target.classList.contains("item-menu")) return;
+    navigate(`#/boxys/${campaign.id}`);
+  });
+  card.querySelector(".item-menu").addEventListener("click", e => {
+    e.stopPropagation();
+    showCtxMenu(e, [
+      { label: "Ver assets", action: () => navigate(`#/boxys/${campaign.id}`) },
+    ]);
+  });
+  return card;
+}
+
+// ===== BOXY CAMPAIGN VIEW =====
+async function renderBoxyCampaign(id) {
+  state.currentCampaign = null;
+  document.title = "Boxys · Carregando…";
+  const main = document.getElementById("main");
+  main.innerHTML = `<div style="padding:32px;color:var(--muted)">Carregando campanha…</div>`;
+  renderSidebar();
+
+  const data = await api("GET", `/api/boxys/campaigns/${id}`);
+  if (data.status !== "ok") {
+    main.innerHTML = `<div style="padding:32px;color:var(--red)">Erro: ${esc(data.error || "Campanha não encontrada")}</div>`;
+    return;
+  }
+
+  const { campaign, advertisements, social_creatives, landing_pages } = data;
+  document.title = `Boxys · ${campaign.title}`;
+
+  const thumbHtml = campaign.image
+    ? `<img class="boxy-campaign-thumb" src="${esc(campaign.image)}" alt="">`
+    : `<div class="boxy-campaign-thumb-ph">📁</div>`;
+
+  const pubBadge = campaign.published
+    ? `<span class="published-badge">Publicado</span>`
+    : `<span class="draft-badge">Rascunho</span>`;
+
+  main.innerHTML = `
+    <div class="breadcrumb">
+      <a href="#/" class="bc-link">Campanhas</a>
+      <span class="sep">›</span>
+      <span>${esc(campaign.title)}</span>
+      <span style="margin-left:8px">${pubBadge}</span>
+    </div>
+    <div class="view-header">
+      <div class="boxy-campaign-header">
+        ${thumbHtml}
+        <div class="boxy-campaign-info">
+          <h1>${esc(campaign.title)}</h1>
+          <div class="meta">
+            <span>${(advertisements||[]).length} anúncio${(advertisements||[]).length!==1?"s":""}</span>
+            <span>·</span>
+            <span>${(social_creatives||[]).length} criativo${(social_creatives||[]).length!==1?"s":""} social${(social_creatives||[]).length!==1?"is":""}</span>
+            <span>·</span>
+            <span>${(landing_pages||[]).length} landing page${(landing_pages||[]).length!==1?"s":""}</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-primary" onclick="showPublishToBoxysModalFromBoxy(${id})">+ Adicionar criativo</button>
+      </div>
+    </div>
+    <div id="boxy-campaign-assets">
+      ${renderAssetSection("Anúncios", advertisements, "ad", id)}
+      ${renderAssetSection("Criativos Sociais", social_creatives, "social", id)}
+      ${renderAssetSection("Landing Pages", landing_pages, "lp", id)}
+    </div>`;
+}
+
+function renderAssetSection(label, items, type, campaignId) {
+  if (!items || !items.length) {
+    return `<div class="asset-section">
+      <div class="asset-section-title">${label} <span>(0)</span></div>
+      <div style="font-size:12px;color:var(--muted);padding:8px 0">Nenhum item ainda. Use "+ Adicionar criativo" para publicar aqui.</div>
+    </div>`;
+  }
+  const cards = items.map(item => {
+    const name = item.title || item.slug || `#${item.id}`;
+    const fmt = item.format || item.dimensions || "";
+    const pub = item.published;
+    const imgHtml = item.cover_image_url
+      ? `<img src="${esc(item.cover_image_url)}" alt="">`
+      : (item.format === "html" ? `&lt;/&gt;` : "🖼");
+    return `<div class="asset-item">
+      <div class="asset-item-icon">${imgHtml}</div>
+      <div class="asset-item-info">
+        <div class="asset-item-name">${esc(name)}</div>
+        <div class="asset-item-meta">${esc(fmt)}</div>
+      </div>
+      <span class="asset-status ${pub ? "pub" : "draft"}">${pub ? "Publicado" : "Rascunho"}</span>
+    </div>`;
+  }).join("");
+
+  return `<div class="asset-section">
+    <div class="asset-section-title">${label} <span>(${items.length})</span></div>
+    <div class="asset-row">${cards}</div>
+  </div>`;
+}
+
+function showPublishToBoxysModalFromBoxy(boxyId) {
+  // Find the campaign in state to pre-select
+  const campaign = (state.boxyCampaigns || []).find(c => c.id === boxyId);
+  if (!campaign) { showPublishToBoxysModal(null); return; }
+  // Open publish modal — we need a publisher creative to link, so show an alert guiding the user
+  openModal(`
+    <div class="modal-header">
+      <h2>Adicionar criativo</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--ink-soft);line-height:1.6">
+        Para adicionar um criativo à campanha <b>${esc(campaign.title)}</b>, converta um frame no Figma ou importe um HTML numa
+        <b>campanha do publisher</b> e use a opção <b>"Publicar no Boxys"</b> no menu do criativo.
+      </p>
+      <p style="font-size:12px;color:var(--muted);margin-top:12px">
+        A campanha Boxys já estará pré-selecionada ao publicar.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Fechar</button>
+    </div>`, "modal-sm");
 }
 
 // ===== CAMPAIGN VIEW =====
@@ -1285,6 +1703,7 @@ function makeCreativeCard(creative) {
   if (creative.type === "html") {
     menuItems.push({ label: "Baixar HTML", action: () => downloadCreativeHtml(creative) });
   }
+  menuItems.push({ label: "Publicar no Boxys", action: () => showPublishToBoxysModal(creative) });
   menuItems.push({ label: "Adicionar a carrossel", action: () => addToCarouselPrompt(creative) });
   menuItems.push({ label: "Associar copy", action: () => showAssociateCopyModal(creative) });
   menuItems.push({ label: "Excluir", danger: true, action: () => deleteCreative(creative) });
@@ -1641,7 +2060,7 @@ async function handleUpload(files, campaignId) {
     const fd = new FormData();
     fd.append("file", file);
     try {
-      await fetch(`/api/campaigns/${campaignId}/upload`, { method: "POST", body: fd });
+      await fetch(`/api/campaigns/${campaignId}/upload`, { method: "POST", body: fd, headers: _authHeader() });
     } catch(e) {}
   }
   // Refresh
@@ -1696,38 +2115,81 @@ document.getElementById("modal-overlay").addEventListener("click", e => {
 
 // Create campaign
 function showCreateCampaignModal() {
+  const hasAuth = state.authEnabled;
   openModal(`
     <div class="modal-header">
       <h2>Nova campanha</h2>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-body">
-      <div class="form-field">
-        <label>Nome da campanha</label>
-        <input class="form-input" id="new-camp-name" placeholder="ex: Lançamento Jardins" autofocus>
+      ${hasAuth ? `<div class="create-type-toggle">
+        <button class="create-type-btn active" id="ct-publisher" onclick="setCampaignType('publisher')">Publisher (local)</button>
+        <button class="create-type-btn" id="ct-boxy" onclick="setCampaignType('boxy')">Boxys + Publisher</button>
+      </div>` : ""}
+      <div id="new-camp-form">
+        <div class="form-field">
+          <label>Nome da campanha</label>
+          <input class="form-input" id="new-camp-name" placeholder="ex: Lançamento Jardins">
+        </div>
+        <div id="new-camp-local-fields">
+          <div class="form-field">
+            <label>File key do Figma (opcional)</label>
+            <input class="form-input" id="new-camp-fk" placeholder="cole a URL ou a chave">
+          </div>
+        </div>
+        <div id="new-camp-boxy-fields" style="display:none">
+          <div class="form-field">
+            <label>Descrição (opcional)</label>
+            <textarea class="form-input" id="new-camp-desc" placeholder="Breve descrição da campanha" style="min-height:72px"></textarea>
+          </div>
+        </div>
       </div>
-      <div class="form-field">
-        <label>File key do Figma (opcional)</label>
-        <input class="form-input" id="new-camp-fk" placeholder="cole a URL ou a chave">
-      </div>
+      <div id="new-camp-error" style="color:var(--red);font-size:12px;min-height:16px"></div>
     </div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn-primary" onclick="submitCreateCampaign()">Criar campanha</button>
+      <button class="btn-primary" id="btn-create-camp" onclick="submitCreateCampaign()">Criar campanha</button>
     </div>`, "modal-sm");
   document.getElementById("new-camp-name").focus();
   document.getElementById("new-camp-name").addEventListener("keydown", e => { if (e.key === "Enter") submitCreateCampaign(); });
 }
 
+function setCampaignType(type) {
+  document.getElementById("ct-publisher")?.classList.toggle("active", type === "publisher");
+  document.getElementById("ct-boxy")?.classList.toggle("active", type === "boxy");
+  document.getElementById("new-camp-local-fields").style.display = type === "publisher" ? "block" : "none";
+  document.getElementById("new-camp-boxy-fields").style.display = type === "boxy" ? "block" : "none";
+}
+
 async function submitCreateCampaign() {
   const name = document.getElementById("new-camp-name").value.trim();
-  const fk = document.getElementById("new-camp-fk").value.trim();
   if (!name) { document.getElementById("new-camp-name").focus(); return; }
-  closeModal();
-  const data = await api("POST", "/api/campaigns", { name, figma_file_key: fk });
-  if (data.status === "ok") {
+
+  const isBoxy = document.getElementById("ct-boxy")?.classList.contains("active");
+  const btn = document.getElementById("btn-create-camp");
+  btn.disabled = true; btn.textContent = "Criando…";
+
+  if (isBoxy) {
+    const desc = document.getElementById("new-camp-desc")?.value?.trim() || "";
+    const data = await api("POST", "/api/boxys/campaigns", { title: name, description: desc, create_local: true });
+    if (data.status !== "ok") {
+      document.getElementById("new-camp-error").textContent = data.error || "Erro ao criar campanha.";
+      btn.disabled = false; btn.textContent = "Criar campanha";
+      return;
+    }
+    closeModal();
     await loadCampaigns();
-    navigate(`#/campaigns/${data.campaign.id}`);
+    const localId = data.local_campaign?.id;
+    if (localId) navigate(`#/campaigns/${localId}`);
+    else navigate(`#/boxys/${data.boxy_campaign?.id}`);
+  } else {
+    const fk = document.getElementById("new-camp-fk")?.value?.trim() || "";
+    const data = await api("POST", "/api/campaigns", { name, figma_file_key: fk });
+    if (data.status === "ok") {
+      closeModal();
+      await loadCampaigns();
+      navigate(`#/campaigns/${data.campaign.id}`);
+    }
   }
 }
 
@@ -2191,7 +2653,7 @@ async function downloadZip() {
 
   try {
     const resp = await fetch("/api/export/zip", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      method: "POST", headers: { "Content-Type": "application/json", ..._authHeader() }, body: JSON.stringify(body),
     });
     if (!resp.ok) throw new Error("Falha ao gerar ZIP");
     const blob = await resp.blob();
@@ -2630,7 +3092,7 @@ async function handleHtmlImportSelect(file, campaignId) {
   fd.append("file", file);
   let parsed;
   try {
-    const r = await fetch(`/api/campaigns/${campaignId}/parse-html`, { method: "POST", body: fd });
+    const r = await fetch(`/api/campaigns/${campaignId}/parse-html`, { method: "POST", body: fd, headers: _authHeader() });
     parsed = await r.json();
     if (parsed.status !== "ok") throw new Error(parsed.error || "Erro ao ler o arquivo");
   } catch(e) {
@@ -2698,7 +3160,7 @@ async function submitHtmlImport(file, campaignId) {
   fd.append("upload", "true");
 
   try {
-    const r = await fetch(`/api/campaigns/${campaignId}/import-html`, { method: "POST", body: fd });
+    const r = await fetch(`/api/campaigns/${campaignId}/import-html`, { method: "POST", body: fd, headers: _authHeader() });
     const data = await r.json();
     if (data.status !== "ok") throw new Error(data.error || "Falha ao importar");
     closeModal();
@@ -2714,10 +3176,94 @@ async function submitHtmlImport(file, campaignId) {
   }
 }
 
+// ===== PUBLISH TO BOXYS =====
+async function showPublishToBoxysModal(creative) {
+  openModal(`
+    <div class="modal-header">
+      <h2>Publicar no Boxys</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px">
+        Criativo: <b>${esc(creative.name)}</b>
+      </p>
+      <div class="form-field">
+        <label>Campanha Boxys</label>
+        <select class="form-input" id="pub-campaign-select"><option value="">Carregando…</option></select>
+      </div>
+      <div class="form-field">
+        <label>Tipo de conteúdo</label>
+        <select class="form-input" id="pub-type-select" onchange="onPubTypeChange()">
+          <option value="advertisement">Anúncio</option>
+          <option value="social_creative">Criativo Social</option>
+          <option value="landing_page">Landing Page</option>
+        </select>
+      </div>
+      <div class="form-field" id="pub-title-field">
+        <label>Título (opcional)</label>
+        <input class="form-input" id="pub-title" value="${esc(creative.name)}">
+      </div>
+      <div class="form-field" id="pub-slug-field" style="display:none">
+        <label>Slug da landing page</label>
+        <input class="form-input" id="pub-slug" placeholder="ex: ap-ibirapuera-lp">
+      </div>
+      <div id="pub-error" style="color:var(--red);font-size:12px;margin-top:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" id="btn-confirm-publish" onclick="submitPublishToBoxys(${creative.id})">Publicar</button>
+    </div>`, "modal-sm");
+
+  // Load Boxys campaigns
+  if (state.boxyCampaigns.length === 0) {
+    const r = await api("GET", "/api/boxys/campaigns");
+    state.boxyCampaigns = r.campaigns || [];
+  }
+  const sel = document.getElementById("pub-campaign-select");
+  if (sel) {
+    sel.innerHTML = state.boxyCampaigns.length
+      ? state.boxyCampaigns.map(c => `<option value="${c.id}">${esc(c.title)}</option>`).join("")
+      : `<option value="">Nenhuma campanha encontrada</option>`;
+  }
+}
+
+function onPubTypeChange() {
+  const type = document.getElementById("pub-type-select")?.value;
+  const slugField = document.getElementById("pub-slug-field");
+  if (slugField) slugField.style.display = type === "landing_page" ? "block" : "none";
+}
+
+async function submitPublishToBoxys(creativeId) {
+  const campaignId = document.getElementById("pub-campaign-select")?.value;
+  const type = document.getElementById("pub-type-select")?.value;
+  const title = document.getElementById("pub-title")?.value?.trim() || "";
+  const slug = document.getElementById("pub-slug")?.value?.trim() || "";
+  const errEl = document.getElementById("pub-error");
+  const btn = document.getElementById("btn-confirm-publish");
+
+  if (!campaignId) { errEl.textContent = "Selecione uma campanha."; return; }
+  if (type === "landing_page" && !slug) { errEl.textContent = "Informe o slug da landing page."; return; }
+
+  btn.disabled = true; btn.textContent = "Publicando…";
+  errEl.textContent = "";
+
+  const payload = { creative_id: creativeId, campaign_id: +campaignId, type, title };
+  if (slug) payload.slug = slug;
+
+  const r = await api("POST", "/api/boxys/publish", payload);
+  if (r.status === "ok") {
+    closeModal();
+    showToast("Publicado no Boxys com sucesso!");
+  } else {
+    errEl.textContent = r.error || "Falha ao publicar.";
+    btn.disabled = false; btn.textContent = "Publicar";
+  }
+}
+
 // ===== SEARCH =====
 document.getElementById("topbar-search").addEventListener("input", () => {
   const hash = window.location.hash || "#/";
-  if (hash === "#/") renderHome();
+  if (hash === "#/") renderHomeContent();
 });
 
 // ===== NEW CAMPAIGN BUTTON IN TOPBAR =====
@@ -2725,8 +3271,20 @@ document.getElementById("btn-new-campaign").addEventListener("click", showCreate
 
 // ===== INIT =====
 window.addEventListener("hashchange", route);
-window.addEventListener("load", () => {
-  checkHealth();
+window.addEventListener("load", async () => {
+  // Hide app shell until auth is resolved
+  document.getElementById("layout").style.display = "none";
+  document.getElementById("topbar").style.display = "none";
+
+  const h = await checkHealth();
+
+  if (h.auth_enabled) {
+    state.authEnabled = true;
+    const ok = await tryAutoLogin();
+    if (!ok) { showLoginScreen(); return; }
+  }
+
+  showApp();
   loadCampaigns().then(route);
 });
 </script>
