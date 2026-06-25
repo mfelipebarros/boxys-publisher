@@ -5,7 +5,6 @@ import { Login } from './pages/Login'
 import { Layout } from './components/Layout'
 import { Home } from './pages/Home'
 import { BoxyCampaignPage } from './pages/BoxyCampaign'
-import { LocalCampaignPage } from './pages/LocalCampaign'
 
 const qc = new QueryClient()
 
@@ -27,7 +26,7 @@ export default function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/campaigns/:id" element={<LocalCampaignPage />} />
+              <Route path="/campaigns/:id" element={<Navigate to="/" replace />} />
               <Route path="/boxys/:id" element={<BoxyCampaignPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

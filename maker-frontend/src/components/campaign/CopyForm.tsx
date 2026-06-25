@@ -17,7 +17,7 @@ interface CopyPayload {
   title: string
   description: string
   message: string
-  type: 'criativo' | 'landing_page'
+  type: 'criativo' | 'landing_page' | 'search'
   content: string
   content_html: string
 }

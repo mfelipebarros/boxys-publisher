@@ -20,6 +20,16 @@
   --shadow: 0 4px 24px rgba(0,0,0,.5);
   --topbar-h: 52px;
   --sidebar-w: 220px;
+
+  /* Aliases for Boxys traffic components */
+  --bg-primary: var(--canvas);
+  --bg-secondary: var(--surface-raised);
+  --bg-tertiary: var(--line);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-soft);
+  --text-tertiary: var(--muted);
+  --blue-primary: var(--accent);
+  --blue-dark: var(--accent-deep);
 }
 
 @layer base {

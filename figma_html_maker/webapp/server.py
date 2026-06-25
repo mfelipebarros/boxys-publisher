@@ -161,10 +161,26 @@ class CreateCampaignRequest(BaseModel):
 class UpdateCampaignRequest(BaseModel):
     name: Optional[str] = None
     figma_file_key: Optional[str] = None
+    briefing_text: Optional[str] = None
+    ia_config: Optional[str] = None
+    campaign_title: Optional[str] = None
+    general_description: Optional[str] = None
+    basic_copy: Optional[str] = None
+    explanation_video_url: Optional[str] = None
+    traffic_video_url: Optional[str] = None
+    verso_config: Optional[str] = None
+    thumb_url: Optional[str] = None
+    featured_image_url: Optional[str] = None
+    traffic_config: Optional[str] = None
 
 
 class CreateCarouselRequest(BaseModel):
     name: str
+
+
+class UpdateCarouselRequest(BaseModel):
+    name: Optional[str] = None
+    destination: Optional[str] = None
 
 
 class AddCarouselItemRequest(BaseModel):
@@ -173,6 +189,18 @@ class AddCarouselItemRequest(BaseModel):
 
 class ReorderCarouselRequest(BaseModel):
     ordered_item_ids: List[int]
+
+
+class ReorderCarouselAssetsRequest(BaseModel):
+    ordered_asset_ids: List[int]
+
+
+class UpdateCarouselAssetRequest(BaseModel):
+    caption: Optional[str] = None
+
+
+class UpdateCreativeRequest(BaseModel):
+    destination: Optional[str] = None
 
 
 class ZipExportRequest(BaseModel):
@@ -490,8 +518,6 @@ def boxys_publish(req: PublishBoxyRequest, request: Request) -> dict:
 _PROMPT_LP = """\
 # Prompt — Landing Page (Boxys)
 
-> Colar no Claude Code junto com o output de copy do app Boxys.
-
 ---
 
 **Antes de começar:** peça ao usuário por referências visuais, o link oficial do empreendimento (para baixar fotos), e qualquer arquivo adicional relevante (logo da construtora, plantas, etc.). Só inicie a construção após receber esse material.
@@ -597,8 +623,6 @@ Verificar antes de concluir:
 _PROMPT_CRIATIVO = """\
 # Prompt — Ad / Post (Boxys)
 
-> Colar no Claude Code junto com o output de copy do app Boxys.
-
 ---
 
 **Antes de começar:** peça ao usuário por referências visuais, o link oficial do empreendimento (para baixar fotos), o formato desejado e qualquer arquivo adicional relevante (logo da construtora, etc.). Só inicie a construção após receber esse material.
@@ -686,7 +710,7 @@ Verificar antes de concluir:
 
 @app.get("/api/prompts/{prompt_type}")
 def get_prompt(prompt_type: str) -> JSONResponse:
-    prompt = _PROMPT_LP if prompt_type == "lp" else _PROMPT_CRIATIVO
+    prompt = _PROMPT_LP if prompt_type == "lp" else _PROMPT_CRIATIVO  # 'criativo' and 'search' both use the ad/post prompt
     return JSONResponse({"status": "ok", "prompt": prompt})
 
 
@@ -979,7 +1003,22 @@ def get_campaign(campaign_id: int) -> JSONResponse:
 
 @app.put("/api/campaigns/{campaign_id}")
 def update_campaign(campaign_id: int, req: UpdateCampaignRequest) -> JSONResponse:
-    campaign = db.update_campaign(campaign_id, req.name, req.figma_file_key)
+    campaign = db.update_campaign(
+        campaign_id,
+        name=req.name,
+        figma_file_key=req.figma_file_key,
+        briefing_text=req.briefing_text,
+        ia_config=req.ia_config,
+        campaign_title=req.campaign_title,
+        general_description=req.general_description,
+        basic_copy=req.basic_copy,
+        explanation_video_url=req.explanation_video_url,
+        traffic_video_url=req.traffic_video_url,
+        verso_config=req.verso_config,
+        thumb_url=req.thumb_url,
+        featured_image_url=req.featured_image_url,
+        traffic_config=req.traffic_config,
+    )
     if not campaign:
         return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
     return JSONResponse({"status": "ok", "campaign": campaign})
@@ -1034,6 +1073,15 @@ def set_creative_copy(creative_id: int, req: UpdateCreativeCopyRequest) -> JSONR
     return JSONResponse({"status": "ok", "creative": updated})
 
 
+@app.put("/api/creatives/{creative_id}")
+def update_creative(creative_id: int, req: UpdateCreativeRequest) -> JSONResponse:
+    creative = db.get_creative(creative_id)
+    if not creative:
+        return JSONResponse({"status": "error", "error": "Criativo não encontrado"}, status_code=404)
+    updated = db.set_creative_destination(creative_id, req.destination)
+    return JSONResponse({"status": "ok", "creative": updated})
+
+
 @app.delete("/api/creatives/{creative_id}")
 def delete_creative(creative_id: int) -> JSONResponse:
     ok = db.delete_creative(creative_id)
@@ -1072,7 +1120,7 @@ def update_copy(copy_id: int, req: UpdateCopyRequest) -> JSONResponse:
 
 class ImportCopiesRequest(BaseModel):
     text: str
-    type: str = "criativo"  # 'criativo' or 'landing_page'
+    type: str = "auto"  # 'auto' (detect from ID), 'criativo', 'landing_page', 'search'
 
 
 @app.post("/api/campaigns/{campaign_id}/copies/import")
@@ -1137,6 +1185,18 @@ def import_copies(campaign_id: int, req: ImportCopiesRequest) -> JSONResponse:
                 fields[canonical] = m.group(2).strip()
         return fields
 
+    # Regex to detect the standard ID convention: [CAMP]-[CANAL]-[FORMAT][NN]
+    # Canal: M, G, S, A  |  Format: E, C, S, V, T
+    _ID_PAT = _re.compile(r'^[A-Z0-9]+-([MGSA])-([ECSVT])\d+$', _re.IGNORECASE)
+
+    def _detect_type(copy_id: str) -> str:
+        """Derive copy type from standardized ID. Format 'S' = search, rest = criativo."""
+        m = _ID_PAT.match(copy_id.strip())
+        if m:
+            fmt = m.group(2).upper()
+            return "search" if fmt == "S" else "criativo"
+        return "criativo"
+
     created = []
     errors = []
     for block in blocks:
@@ -1148,7 +1208,13 @@ def import_copies(campaign_id: int, req: ImportCopiesRequest) -> JSONResponse:
 
         content = parsed.get("conteudo", "")
 
-        if req.type == "landing_page":
+        # Resolve type: explicit override wins, otherwise auto-detect from ID
+        if req.type in ("criativo", "landing_page", "search"):
+            block_type = req.type
+        else:
+            block_type = _detect_type(copy_ref_id)
+
+        if block_type == "landing_page":
             cp = db.create_copy(
                 campaign_id=campaign_id,
                 name=copy_ref_id,
@@ -1165,7 +1231,7 @@ def import_copies(campaign_id: int, req: ImportCopiesRequest) -> JSONResponse:
                 title=titulo,
                 description=descricao,
                 message=mensagem,
-                type="criativo",
+                type=block_type,
                 content=content,
             )
         created.append(cp)
@@ -1180,6 +1246,31 @@ def delete_copy(copy_id: int) -> JSONResponse:
     if not ok:
         return JSONResponse({"status": "error", "error": "Copy não encontrada"}, status_code=404)
     return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/campaigns/{campaign_id}/images")
+async def upload_campaign_image(
+    campaign_id: int,
+    field: str = Form(...),  # 'thumb_url' or 'featured_image_url'
+    file: UploadFile = File(...),
+) -> JSONResponse:
+    """Upload campaign image (thumb or featured). Returns updated campaign."""
+    campaign = db.get_campaign(campaign_id)
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+    if field not in ("thumb_url", "featured_image_url"):
+        return JSONResponse({"status": "error", "error": "Campo inválido"}, status_code=400)
+
+    upload_dir = OUTPUT_DIR / "campaign-images" / str(campaign_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", file.filename or "image").strip("_")
+    dest = upload_dir / f"{field}_{safe_name}"
+    data = await file.read()
+    dest.write_bytes(data)
+    url = f"/preview/campaign-images/{campaign_id}/{dest.name}"
+    kwargs = {field: url}
+    updated = db.update_campaign(campaign_id, **kwargs)
+    return JSONResponse({"status": "ok", "campaign": updated, "url": url})
 
 
 @app.post("/api/campaigns/{campaign_id}/upload")
@@ -1259,6 +1350,7 @@ async def import_html_endpoint(
     desc: str = Form(""),
     message: str = Form(""),
     upload: bool = Form(True),
+    creative_type: str = Form("html"),
 ) -> JSONResponse:
     campaign = db.get_campaign(campaign_id)
     if not campaign:
@@ -1335,9 +1427,11 @@ async def import_html_endpoint(
             )
             matched_copy_id = new_copy["id"]
 
+    allowed_types = {"html", "landing_page"}
+    ctype = creative_type if creative_type in allowed_types else "html"
     creative = db.create_creative(
         campaign_id=campaign_id,
-        type="html",
+        type=ctype,
         name=stem_name,
         local_path=str(html_path),
         supabase_url=thumbnail_url,
@@ -1390,6 +1484,14 @@ def remove_carousel_item(item_id: int) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
+@app.put("/api/carousels/{carousel_id}")
+def update_carousel(carousel_id: int, req: UpdateCarouselRequest) -> JSONResponse:
+    carousel = db.update_carousel(carousel_id, name=req.name, destination=req.destination)
+    if not carousel:
+        return JSONResponse({"status": "error", "error": "Carrossel não encontrado"}, status_code=404)
+    return JSONResponse({"status": "ok", "carousel": carousel})
+
+
 @app.put("/api/carousels/{carousel_id}/order")
 def reorder_carousel(carousel_id: int, req: ReorderCarouselRequest) -> JSONResponse:
     carousel = db.get_carousel(carousel_id)
@@ -1397,6 +1499,78 @@ def reorder_carousel(carousel_id: int, req: ReorderCarouselRequest) -> JSONRespo
         return JSONResponse({"status": "error", "error": "Carrossel não encontrado"}, status_code=404)
     db.reorder_carousel_items(carousel_id, req.ordered_item_ids)
     return JSONResponse({"status": "ok", "items": db.get_carousel_items(carousel_id)})
+
+
+# ---- Carousel assets (new model: assets uploaded directly into carousel) ----
+
+@app.post("/api/carousels/{carousel_id}/assets")
+async def upload_carousel_asset(carousel_id: int, file: UploadFile = File(...)) -> JSONResponse:
+    carousel = db.get_carousel(carousel_id)
+    if not carousel:
+        return JSONResponse({"status": "error", "error": "Carrossel não encontrado"}, status_code=404)
+
+    content_type = file.content_type or ""
+    if content_type.startswith("image/"):
+        asset_type = "image"
+    elif content_type == "text/html" or (file.filename or "").endswith((".html", ".htm")):
+        asset_type = "html"
+    else:
+        return JSONResponse({"status": "error", "error": "Tipo não suportado (image ou html)"}, status_code=400)
+
+    upload_dir = OUTPUT_DIR / "carousel-assets" / str(carousel_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", file.filename or "file").strip("_")
+    dest = upload_dir / safe_name
+    counter = 1
+    while dest.exists():
+        stem, suffix = safe_name.rsplit(".", 1) if "." in safe_name else (safe_name, "")
+        dest = upload_dir / (f"{stem}_{counter}.{suffix}" if suffix else f"{safe_name}_{counter}")
+        counter += 1
+
+    data = await file.read()
+    dest.write_bytes(data)
+
+    if asset_type == "image":
+        file_url = f"/preview/carousel-assets/{carousel_id}/{dest.name}"
+        asset = db.create_carousel_asset(carousel_id, "image", file_url=file_url, thumbnail_url=file_url)
+    else:
+        html_content = data.decode("utf-8", errors="replace")
+        parsed = _parse_html_ad(html_content)
+        file_url = f"/preview/carousel-assets/{carousel_id}/{dest.name}"
+        asset = db.create_carousel_asset(
+            carousel_id, "html",
+            file_url=file_url,
+            html_content=html_content,
+            thumbnail_url=file_url,
+        )
+
+    return JSONResponse({"status": "ok", "asset": asset})
+
+
+@app.put("/api/carousel-assets/{asset_id}")
+def update_carousel_asset(asset_id: int, req: UpdateCarouselAssetRequest) -> JSONResponse:
+    asset = db.update_carousel_asset(asset_id, caption=req.caption)
+    if not asset:
+        return JSONResponse({"status": "error", "error": "Asset não encontrado"}, status_code=404)
+    return JSONResponse({"status": "ok", "asset": asset})
+
+
+@app.delete("/api/carousel-assets/{asset_id}")
+def delete_carousel_asset(asset_id: int) -> JSONResponse:
+    ok = db.delete_carousel_asset(asset_id)
+    if not ok:
+        return JSONResponse({"status": "error", "error": "Asset não encontrado"}, status_code=404)
+    return JSONResponse({"status": "ok"})
+
+
+@app.put("/api/carousels/{carousel_id}/assets/order")
+def reorder_carousel_assets(carousel_id: int, req: ReorderCarouselAssetsRequest) -> JSONResponse:
+    carousel = db.get_carousel(carousel_id)
+    if not carousel:
+        return JSONResponse({"status": "error", "error": "Carrossel não encontrado"}, status_code=404)
+    assets = db.reorder_carousel_assets(carousel_id, req.ordered_asset_ids)
+    return JSONResponse({"status": "ok", "assets": assets})
 
 
 # ---- ZIP export ----

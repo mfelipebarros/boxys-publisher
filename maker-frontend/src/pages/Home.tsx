@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Modal, ModalFooter } from '../components/ui/Modal'
-import type { LocalCampaign, BoxyCampaign } from '../types'
+import type { BoxyCampaign } from '../types'
 
 function FolderIcon({ color = '#0093FF' }: { color?: string }) {
   return (
@@ -17,12 +17,11 @@ function FolderIcon({ color = '#0093FF' }: { color?: string }) {
   )
 }
 
-function CampaignCard({ title, meta, image, onClick, badge, status }: {
+function CampaignCard({ title, meta, image, onClick, status }: {
   title: string
   meta: string
   image?: string
   onClick: () => void
-  badge?: string
   status?: 'published' | 'draft'
 }) {
   return (
@@ -30,11 +29,6 @@ function CampaignCard({ title, meta, image, onClick, badge, status }: {
       onClick={onClick}
       className="bg-[var(--surface)] rounded-[var(--radius)] border border-[var(--line)] cursor-pointer hover:border-[var(--accent)] transition-all group overflow-hidden relative"
     >
-      {badge && (
-        <span className="absolute top-2 right-2 z-10 bg-[var(--accent)] text-white text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded">
-          {badge}
-        </span>
-      )}
       {status && (
         <span className={`absolute top-2 left-2 z-10 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
           status === 'published' ? 'bg-green-900/60 text-green-400' : 'bg-[var(--surface-raised)] text-[var(--muted)]'
@@ -52,18 +46,6 @@ function CampaignCard({ title, meta, image, onClick, badge, status }: {
         <p className="font-semibold text-sm truncate text-[var(--ink)]">{title}</p>
         <p className="text-xs text-[var(--muted)] mt-1">{meta}</p>
       </div>
-    </div>
-  )
-}
-
-function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  return (
-    <div className="mb-16">
-      <div className="flex items-baseline gap-2 mb-6">
-        <h2 className="text-lg font-semibold text-[var(--ink)]">{title}</h2>
-        <span className="text-xs font-mono text-[var(--muted)]">{count} campanha{count !== 1 ? 's' : ''}</span>
-      </div>
-      {children}
     </div>
   )
 }
@@ -88,20 +70,14 @@ export function Home() {
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
 
-  const { data: localData } = useQuery({
-    queryKey: ['local-campaigns'],
-    queryFn: () => api.get<{ campaigns: LocalCampaign[] }>('/api/campaigns'),
-    staleTime: 30_000,
-  })
-  const { data: boxyData } = useQuery({
+  const { data: boxyData, isLoading } = useQuery({
     queryKey: ['boxy-campaigns'],
     queryFn: () => api.get<{ campaigns: BoxyCampaign[] }>('/api/boxys/campaigns'),
     staleTime: 30_000,
   })
 
   const lq = q.toLowerCase()
-  const local = (localData?.campaigns ?? []).filter(c => !lq || c.name.toLowerCase().includes(lq))
-  const boxy = (boxyData?.campaigns ?? []).filter(c => !lq || c.title.toLowerCase().includes(lq))
+  const campaigns = (boxyData?.campaigns ?? []).filter(c => !lq || c.title.toLowerCase().includes(lq))
 
   function openCreate() {
     setCampName('')
@@ -116,15 +92,21 @@ export function Home() {
     setCreating(true)
     setCreateError('')
     try {
-      const data = await api.post<{ status: string; local_campaign?: { id: number }; boxy_campaign?: { id: number }; error?: string }>(
-        '/api/boxys/campaigns',
-        { title: campName.trim(), description: campDesc.trim(), figma_file_key: campFk.trim(), create_local: true }
-      )
-      qc.invalidateQueries({ queryKey: ['local-campaigns'] })
+      const data = await api.post<{
+        status: string
+        boxy_campaign?: { id: number }
+        local_campaign?: { id: number }
+        error?: string
+      }>('/api/boxys/campaigns', {
+        title: campName.trim(),
+        description: campDesc.trim(),
+        figma_file_key: campFk.trim(),
+        create_local: true,
+      })
       qc.invalidateQueries({ queryKey: ['boxy-campaigns'] })
+      qc.invalidateQueries({ queryKey: ['local-campaigns'] })
       setShowCreate(false)
-      if (data.local_campaign?.id) navigate(`/campaigns/${data.local_campaign.id}`)
-      else if (data.boxy_campaign?.id) navigate(`/boxys/${data.boxy_campaign.id}`)
+      if (data.boxy_campaign?.id) navigate(`/boxys/${data.boxy_campaign.id}`)
     } catch (e: unknown) {
       setCreateError(e instanceof Error ? e.message : 'Erro ao criar campanha')
     } finally {
@@ -135,7 +117,10 @@ export function Home() {
   return (
     <>
       <div className="flex items-center justify-between mb-12">
-        <h1 className="text-2xl font-bold text-[var(--ink)]">Campanhas</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--ink)]">Campanhas</h1>
+          <p className="text-xs text-[var(--muted)] mt-1">{campaigns.length} campanha{campaigns.length !== 1 ? 's' : ''}</p>
+        </div>
         <div className="flex items-center gap-3">
           <Input
             placeholder="Buscar…"
@@ -147,40 +132,27 @@ export function Home() {
         </div>
       </div>
 
-      <Section title="Campanhas Boxys" count={boxy.length}>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <span className="text-[var(--muted)] text-sm font-mono">Carregando…</span>
+        </div>
+      ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {boxy.length === 0
-            ? <EmptyState message="Nenhuma campanha" sub="Campanhas do app Boxys aparecerão aqui." />
-            : boxy.map(c => (
+          {campaigns.length === 0
+            ? <EmptyState message="Nenhuma campanha" sub="Crie uma campanha para começar." />
+            : campaigns.map(c => (
               <CampaignCard
                 key={c.id}
                 title={c.title}
-                meta={`${c.asset_count ?? 0} asset${c.asset_count !== 1 ? 's' : ''}`}
+                meta={`${c.asset_count ?? 0} asset${c.asset_count !== 1 ? 's' : ''} publicado${c.asset_count !== 1 ? 's' : ''}`}
                 image={c.image || undefined}
-                badge="Boxys"
                 status={c.published ? 'published' : 'draft'}
                 onClick={() => navigate(`/boxys/${c.id}`)}
               />
             ))
           }
         </div>
-      </Section>
-
-      <Section title="Campanhas locais (Publisher)" count={local.length}>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {local.length === 0
-            ? <EmptyState message="Nenhuma campanha local" sub='Crie uma campanha para começar.' />
-            : local.map(c => (
-              <CampaignCard
-                key={c.id}
-                title={c.name}
-                meta={`${c.creative_count ?? 0} criativo${c.creative_count !== 1 ? 's' : ''}`}
-                onClick={() => navigate(`/campaigns/${c.id}`)}
-              />
-            ))
-          }
-        </div>
-      </Section>
+      )}
 
       {showCreate && (
         <Modal

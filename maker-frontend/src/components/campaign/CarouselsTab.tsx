@@ -1,178 +1,215 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { Button } from '../ui/Button'
 import { Modal, ModalFooter } from '../ui/Modal'
 import { Input } from '../ui/Input'
-import type { LocalCarousel, LocalCreative } from '../../types'
+import type { LocalCarousel, LocalCarouselAsset } from '../../types'
 
 interface Props {
   campaignId: string
   carousels: LocalCarousel[]
-  creatives: LocalCreative[]
 }
 
-function AddSlideModal({
-  carouselId,
+function AssetRow({
+  asset,
   campaignId,
-  creatives,
-  onClose,
+  carouselId: _carouselId,
+  idx,
+  total,
+  onMove,
 }: {
-  carouselId: number
+  asset: LocalCarouselAsset
   campaignId: string
-  creatives: LocalCreative[]
-  onClose: () => void
+  carouselId: number
+  idx: number
+  total: number
+  onMove: (assetId: number, dir: 'up' | 'down') => void
 }) {
   const qc = useQueryClient()
-  const [selected, setSelected] = useState<number | null>(null)
+  const [caption, setCaption] = useState(asset.caption ?? '')
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const addMut = useMutation({
-    mutationFn: () => api.post(`/api/carousels/${carouselId}/items`, { creative_id: selected }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['local-campaign', campaignId] })
-      onClose()
-    },
+  const removeMut = useMutation({
+    mutationFn: () => api.delete(`/api/carousel-assets/${asset.id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['local-campaign', campaignId] }),
   })
 
+  const captionMut = useMutation({
+    mutationFn: (val: string) => api.put(`/api/carousel-assets/${asset.id}`, { caption: val }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['local-campaign', campaignId] }),
+  })
+
+  function handleCaptionChange(val: string) {
+    setCaption(val)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => captionMut.mutate(val), 800)
+  }
+
   return (
-    <Modal
-      title="Adicionar slide"
-      onClose={onClose}
-      size="lg"
-      footer={
-        <ModalFooter
-          onClose={onClose}
-          onConfirm={() => selected && addMut.mutate()}
-          confirmLabel="Adicionar"
-          loading={addMut.isPending}
-        />
-      }
-    >
-      <div className="grid grid-cols-3 gap-3">
-        {creatives.map(c => (
-          <div
-            key={c.id}
-            onClick={() => setSelected(c.id)}
-            className={`cursor-pointer rounded-[var(--radius)] border overflow-hidden transition-all ${
-              selected === c.id ? 'border-[var(--accent)]' : 'border-[var(--line)] hover:border-[var(--muted)]'
-            }`}
-          >
-            <div className="aspect-video bg-[var(--surface-raised)] flex items-center justify-center overflow-hidden">
-              {c.thumbnail_url
-                ? <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                : <span className="text-xs font-mono text-[var(--muted)]">{c.width}×{c.height}</span>
-              }
-            </div>
-            <div className="px-2 py-1.5">
-              <p className="text-xs font-medium truncate text-[var(--ink-soft)]">{c.name}</p>
-            </div>
-          </div>
-        ))}
+    <div className="flex items-center gap-3 bg-[var(--surface-raised)] rounded-lg px-3 py-2">
+      <span className="text-xs font-mono text-[var(--muted)] w-5 shrink-0">{idx + 1}</span>
+
+      {asset.thumbnail_url ? (
+        <img src={asset.thumbnail_url} alt="" className="w-12 h-8 object-cover rounded shrink-0" />
+      ) : (
+        <div className="w-12 h-8 bg-[var(--surface)] rounded flex items-center justify-center shrink-0">
+          <span className="text-[9px] font-mono text-[var(--muted)]">{asset.type.toUpperCase()}</span>
+        </div>
+      )}
+
+      <input
+        value={caption}
+        onChange={e => handleCaptionChange(e.target.value)}
+        placeholder="Legenda do slide…"
+        className="flex-1 min-w-0 text-xs bg-transparent border-0 outline-none text-[var(--ink-soft)] placeholder:text-[var(--muted)]"
+      />
+
+      <span className="text-[10px] font-mono text-[var(--muted)] px-1.5 py-0.5 bg-[var(--surface)] rounded shrink-0">
+        {asset.type.toUpperCase()}
+      </span>
+
+      <div className="flex gap-0.5 shrink-0">
+        <button
+          onClick={() => onMove(asset.id, 'up')}
+          disabled={idx === 0}
+          className="text-xs text-[var(--muted)] hover:text-[var(--ink)] px-1 disabled:opacity-30"
+        >↑</button>
+        <button
+          onClick={() => onMove(asset.id, 'down')}
+          disabled={idx === total - 1}
+          className="text-xs text-[var(--muted)] hover:text-[var(--ink)] px-1 disabled:opacity-30"
+        >↓</button>
+        <button
+          onClick={() => removeMut.mutate()}
+          disabled={removeMut.isPending}
+          className="text-xs text-[var(--red,#ef4444)] hover:opacity-70 px-1"
+        >×</button>
       </div>
-    </Modal>
+    </div>
   )
 }
 
 function CarouselBlock({
   carousel,
   campaignId,
-  creatives,
 }: {
   carousel: LocalCarousel
   campaignId: string
-  creatives: LocalCreative[]
 }) {
   const qc = useQueryClient()
-  const [showAddSlide, setShowAddSlide] = useState(false)
   const [open, setOpen] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const deleteMut = useMutation({
     mutationFn: () => api.delete(`/api/carousels/${carousel.id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['local-campaign', campaignId] }),
   })
 
-  const removeItemMut = useMutation({
-    mutationFn: (itemId: number) => api.delete(`/api/carousel-items/${itemId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['local-campaign', campaignId] }),
-  })
+  async function uploadAsset(file: File) {
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      await api.upload(`/api/carousels/${carousel.id}/assets`, fd)
+      qc.invalidateQueries({ queryKey: ['local-campaign', campaignId] })
+    } finally {
+      setUploading(false)
+    }
+  }
 
-  async function moveItem(itemId: number, direction: 'up' | 'down') {
-    const items = [...carousel.items].sort((a, b) => a.position - b.position)
-    const idx = items.findIndex(i => i.id === itemId)
-    if (direction === 'up' && idx === 0) return
-    if (direction === 'down' && idx === items.length - 1) return
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-    const newOrder = items.map(i => i.id)
-    ;[newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]]
-    await api.put(`/api/carousels/${carousel.id}/order`, { item_ids: newOrder })
+  function handleFiles(files: FileList | null) {
+    if (!files) return
+    Array.from(files).forEach(f => uploadAsset(f))
+  }
+
+  async function moveAsset(assetId: number, dir: 'up' | 'down') {
+    const sorted = [...(carousel.assets ?? [])].sort((a, b) => a.position - b.position)
+    const idx = sorted.findIndex(a => a.id === assetId)
+    if (dir === 'up' && idx === 0) return
+    if (dir === 'down' && idx === sorted.length - 1) return
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+    const order = sorted.map(a => a.id)
+    ;[order[idx], order[swapIdx]] = [order[swapIdx], order[idx]]
+    await api.put(`/api/carousels/${carousel.id}/assets/order`, { ordered_asset_ids: order })
     qc.invalidateQueries({ queryKey: ['local-campaign', campaignId] })
   }
 
-  const sortedItems = [...carousel.items].sort((a, b) => a.position - b.position)
+  const sortedAssets = [...(carousel.assets ?? [])].sort((a, b) => a.position - b.position)
 
   return (
     <div className="bg-[var(--surface)] rounded-[var(--radius)] border border-[var(--line)] overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--line)]">
-        <button onClick={() => setOpen(!open)} className="text-[var(--muted)] text-xs">
+        <button onClick={() => setOpen(!open)} className="text-[var(--muted)] text-xs w-4">
           {open ? '▼' : '▶'}
         </button>
         <span className="font-semibold text-sm text-[var(--ink)] flex-1">{carousel.name}</span>
-        <span className="text-xs text-[var(--muted)]">{sortedItems.length} slides</span>
-        <Button size="sm" variant="secondary" onClick={() => setShowAddSlide(true)}>+ Slide</Button>
-        <Button size="sm" variant="danger" onClick={() => confirm(`Deletar "${carousel.name}"?`) && deleteMut.mutate()}>
-          ×
+        <span className="text-xs text-[var(--muted)]">{sortedAssets.length} slides</span>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? '…' : '+ Slide'}
         </Button>
+        <Button
+          size="sm"
+          variant="danger"
+          onClick={() => confirm(`Deletar "${carousel.name}"?`) && deleteMut.mutate()}
+        >×</Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*,.html,.htm"
+          multiple
+          className="hidden"
+          onChange={e => handleFiles(e.target.files)}
+        />
       </div>
 
-      {/* Slides */}
+      {/* Assets */}
       {open && (
         <div className="p-4">
-          {sortedItems.length === 0 ? (
-            <p className="text-xs text-[var(--muted)] text-center py-4">Nenhum slide. Adicione criativos ao carrossel.</p>
+          {sortedAssets.length === 0 ? (
+            <div
+              onClick={() => fileRef.current?.click()}
+              className="border-2 border-dashed border-[var(--line)] rounded-lg p-6 text-center cursor-pointer hover:border-[var(--muted)] transition-colors"
+            >
+              <p className="text-xs text-[var(--muted)]">
+                Clique em "+ Slide" ou aqui para adicionar imagens ou HTMLs ao carrossel
+              </p>
+            </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {sortedItems.map((item, idx) => {
-                const creative = creatives.find(c => c.id === item.creative_id)
-                return (
-                  <div key={item.id} className="flex items-center gap-3 bg-[var(--surface-raised)] rounded-lg px-3 py-2">
-                    <span className="text-xs font-mono text-[var(--muted)] w-5">{idx + 1}</span>
-                    {creative?.thumbnail_url ? (
-                      <img src={creative.thumbnail_url} alt="" className="w-12 h-8 object-cover rounded" />
-                    ) : (
-                      <div className="w-12 h-8 bg-[var(--surface)] rounded flex items-center justify-center">
-                        <span className="text-[9px] text-[var(--muted)]">{creative?.width}×{creative?.height}</span>
-                      </div>
-                    )}
-                    <span className="flex-1 text-xs text-[var(--ink-soft)] truncate">
-                      {creative?.name ?? item.creative_name ?? `Criativo ${item.creative_id}`}
-                    </span>
-                    <div className="flex gap-1">
-                      <button onClick={() => moveItem(item.id, 'up')} className="text-xs text-[var(--muted)] hover:text-[var(--ink)] px-1" disabled={idx === 0}>↑</button>
-                      <button onClick={() => moveItem(item.id, 'down')} className="text-xs text-[var(--muted)] hover:text-[var(--ink)] px-1" disabled={idx === sortedItems.length - 1}>↓</button>
-                      <button onClick={() => removeItemMut.mutate(item.id)} className="text-xs text-[var(--red)] hover:opacity-70 px-1">×</button>
-                    </div>
-                  </div>
-                )
-              })}
+              {sortedAssets.map((asset, idx) => (
+                <AssetRow
+                  key={asset.id}
+                  asset={asset}
+                  campaignId={campaignId}
+                  carouselId={carousel.id}
+                  idx={idx}
+                  total={sortedAssets.length}
+                  onMove={moveAsset}
+                />
+              ))}
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="text-xs text-[var(--muted)] hover:text-[var(--ink)] py-2 border border-dashed border-[var(--line)] rounded-lg transition-colors"
+              >
+                + Adicionar slide
+              </button>
             </div>
           )}
         </div>
-      )}
-
-      {showAddSlide && (
-        <AddSlideModal
-          carouselId={carousel.id}
-          campaignId={campaignId}
-          creatives={creatives}
-          onClose={() => setShowAddSlide(false)}
-        />
       )}
     </div>
   )
 }
 
-export function CarouselsTab({ campaignId, carousels, creatives }: Props) {
+export function CarouselsTab({ campaignId, carousels }: Props) {
   const qc = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
   const [name, setName] = useState('')
@@ -202,17 +239,14 @@ export function CarouselsTab({ campaignId, carousels, creatives }: Props) {
       {carousels.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center bg-[var(--surface)] rounded-[var(--radius)] border border-[var(--line)]">
           <p className="font-semibold text-sm text-[var(--ink-soft)]">Nenhum carrossel ainda</p>
-          <p className="text-xs text-[var(--muted)] mt-1">Crie um carrossel e adicione slides.</p>
+          <p className="text-xs text-[var(--muted)] mt-1">
+            Crie um carrossel e adicione imagens ou HTMLs dentro dele.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           {carousels.map(c => (
-            <CarouselBlock
-              key={c.id}
-              carousel={c}
-              campaignId={campaignId}
-              creatives={creatives}
-            />
+            <CarouselBlock key={c.id} carousel={c} campaignId={campaignId} />
           ))}
         </div>
       )}
@@ -234,7 +268,7 @@ export function CarouselsTab({ campaignId, carousels, creatives }: Props) {
           <div>
             <label className="block text-xs font-semibold text-[var(--muted)] mb-1.5">Nome</label>
             <Input
-              placeholder="ex: Feed 1080x1080"
+              placeholder="ex: Feed 1080x1080 — Lançamento"
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && createCarousel()}

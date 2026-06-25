@@ -3,10 +3,16 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { Button } from '../components/ui/Button'
-import { CreativesTab } from '../components/campaign/CreativesTab'
+import { BriefingTab } from '../components/campaign/BriefingTab'
 import { CopiesTab } from '../components/campaign/CopiesTab'
+import { LandingPageTab } from '../components/campaign/LandingPageTab'
+import { BannersTab } from '../components/campaign/BannersTab'
 import { CarouselsTab } from '../components/campaign/CarouselsTab'
-import { ExportTab } from '../components/campaign/ExportTab'
+import { VideosTab } from '../components/campaign/VideosTab'
+import { IATab } from '../components/campaign/IATab'
+import { DescricoesTab } from '../components/campaign/DescricoesTab'
+import { DesignTab } from '../components/campaign/DesignTab'
+import { PublicarTab } from '../components/campaign/PublicarTab'
 import { SearchTab } from '../components/campaign/SearchTab'
 import type { LocalCampaign, LocalCreative, LocalCopy, LocalCarousel } from '../types'
 
@@ -18,18 +24,24 @@ interface LocalCampaignDetailResponse {
 }
 
 const TABS = [
-  { key: 'creatives', label: 'Criativos' },
-  { key: 'copies', label: 'Copies' },
+  { key: 'briefing', label: 'Briefing' },
+  { key: 'copies', label: 'Copy' },
+  { key: 'landing-page', label: 'Landing Page' },
+  { key: 'banners', label: 'Banners' },
   { key: 'carousels', label: 'Carrosseis' },
+  { key: 'videos', label: 'Videos' },
+  { key: 'ia', label: 'IA' },
+  { key: 'descricoes', label: 'Descrições' },
+  { key: 'design', label: 'Design' },
+  { key: 'publicar', label: 'Publicar' },
   { key: 'search', label: 'Search Ads' },
-  { key: 'export', label: 'Export ZIP' },
 ] as const
 
 type TabKey = typeof TABS[number]['key']
 
 export function LocalCampaignPage() {
   const { id } = useParams<{ id: string }>()
-  const [tab, setTab] = useState<TabKey>('creatives')
+  const [tab, setTab] = useState<TabKey>('briefing')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['local-campaign', id],
@@ -52,12 +64,16 @@ export function LocalCampaignPage() {
 
   const { campaign, creatives = [], copies = [], carousels = [] } = data
 
-  const counts: Record<TabKey, number | undefined> = {
-    creatives: creatives.length,
+  const banners = creatives.filter(c => c.type === 'html' || c.type === 'image')
+  const videos = creatives.filter(c => c.type === 'video')
+  const landingPages = creatives.filter(c => c.type === 'landing_page')
+
+  const counts: Partial<Record<TabKey, number>> = {
     copies: copies.length,
+    'landing-page': landingPages.length,
+    banners: banners.length,
     carousels: carousels.length,
-    search: undefined,
-    export: undefined,
+    videos: videos.length,
   }
 
   return (
@@ -79,12 +95,12 @@ export function LocalCampaignPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-8 border-b border-[var(--line)]">
+      <div className="flex gap-0.5 mb-8 border-b border-[var(--line)] overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px ${
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px whitespace-nowrap ${
               tab === t.key
                 ? 'border-[var(--accent)] text-[var(--accent)]'
                 : 'border-transparent text-[var(--muted)] hover:text-[var(--ink-soft)]'
@@ -101,25 +117,44 @@ export function LocalCampaignPage() {
       </div>
 
       {/* Tab content */}
-      {tab === 'creatives' && (
-        <CreativesTab campaignId={id!} creatives={creatives} copies={copies} boxysCampaignId={campaign.boxys_campaign_id} />
+      {tab === 'briefing' && (
+        <BriefingTab campaignId={id!} campaign={campaign} />
       )}
       {tab === 'copies' && (
         <CopiesTab campaignId={id!} copies={copies} />
       )}
+      {tab === 'landing-page' && (
+        <LandingPageTab campaignId={id!} creatives={landingPages} copies={copies} />
+      )}
+      {tab === 'banners' && (
+        <BannersTab campaignId={id!} creatives={banners} copies={copies} boxysCampaignId={campaign.boxys_campaign_id} />
+      )}
       {tab === 'carousels' && (
-        <CarouselsTab campaignId={id!} carousels={carousels} creatives={creatives} />
+        <CarouselsTab campaignId={id!} carousels={carousels} />
+      )}
+      {tab === 'videos' && (
+        <VideosTab campaignId={id!} creatives={videos} copies={copies} boxysCampaignId={campaign.boxys_campaign_id} />
+      )}
+      {tab === 'ia' && (
+        <IATab campaignId={id!} campaign={campaign} />
+      )}
+      {tab === 'descricoes' && (
+        <DescricoesTab campaignId={id!} campaign={campaign} />
+      )}
+      {tab === 'design' && (
+        <DesignTab campaignId={id!} campaign={campaign} />
+      )}
+      {tab === 'publicar' && (
+        <PublicarTab
+          campaignId={id!}
+          campaign={campaign}
+          banners={banners}
+          videos={videos}
+          carousels={carousels}
+        />
       )}
       {tab === 'search' && (
         <SearchTab campaignId={id!} />
-      )}
-      {tab === 'export' && (
-        <ExportTab
-          campaignId={id!}
-          creatives={creatives}
-          carousels={carousels}
-          copies={copies}
-        />
       )}
     </>
   )

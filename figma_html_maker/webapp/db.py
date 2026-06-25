@@ -10,6 +10,14 @@ from typing import List, Optional
 DB_PATH = Path(os.environ.get("DB_PATH", "./data/boxys.db")).resolve()
 
 
+def _safe_add_col(table: str, col: str, definition: str) -> None:
+    with _conn() as cx:
+        try:
+            cx.execute(f"ALTER TABLE {table} ADD COLUMN {col} {definition}")
+        except sqlite3.OperationalError:
+            pass
+
+
 def _migrate() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _conn() as cx:
@@ -97,6 +105,36 @@ def _migrate() -> None:
             cx.execute("ALTER TABLE campaigns ADD COLUMN search_ads_json TEXT DEFAULT ''")
         except sqlite3.OperationalError:
             pass
+    # new campaign metadata fields
+    _safe_add_col("campaigns", "briefing_text", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "ia_config", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "campaign_title", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "general_description", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "basic_copy", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "explanation_video_url", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "traffic_video_url", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "verso_config", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "thumb_url", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "featured_image_url", "TEXT DEFAULT ''")
+    # destination field on creatives and carousels for publish flow
+    _safe_add_col("creatives", "destination", "TEXT DEFAULT NULL")
+    _safe_add_col("carousels", "destination", "TEXT DEFAULT NULL")
+    _safe_add_col("campaigns", "traffic_config", "TEXT DEFAULT ''")
+    # carousel_assets table — new model: assets uploaded directly into carousel (not linked to creatives)
+    with _conn() as cx:
+        cx.executescript("""
+            CREATE TABLE IF NOT EXISTS carousel_assets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                carousel_id INTEGER REFERENCES carousels(id) ON DELETE CASCADE,
+                position INTEGER DEFAULT 0,
+                type TEXT NOT NULL DEFAULT 'image',
+                file_url TEXT DEFAULT '',
+                thumbnail_url TEXT DEFAULT '',
+                html_content TEXT DEFAULT '',
+                caption TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
 
 
 def _conn() -> sqlite3.Connection:
@@ -141,18 +179,41 @@ def get_campaign(campaign_id: int) -> Optional[dict]:
         return _row(cx.execute("SELECT * FROM campaigns WHERE id = ?", (campaign_id,)).fetchone())
 
 
-def update_campaign(campaign_id: int, name: Optional[str] = None, figma_file_key: Optional[str] = None) -> Optional[dict]:
+def update_campaign(
+    campaign_id: int,
+    name: Optional[str] = None,
+    figma_file_key: Optional[str] = None,
+    briefing_text: Optional[str] = None,
+    ia_config: Optional[str] = None,
+    campaign_title: Optional[str] = None,
+    general_description: Optional[str] = None,
+    basic_copy: Optional[str] = None,
+    explanation_video_url: Optional[str] = None,
+    traffic_video_url: Optional[str] = None,
+    verso_config: Optional[str] = None,
+    thumb_url: Optional[str] = None,
+    featured_image_url: Optional[str] = None,
+    traffic_config: Optional[str] = None,
+) -> Optional[dict]:
+    cols = [
+        ("name", name), ("figma_file_key", figma_file_key),
+        ("briefing_text", briefing_text), ("ia_config", ia_config),
+        ("campaign_title", campaign_title), ("general_description", general_description),
+        ("basic_copy", basic_copy), ("explanation_video_url", explanation_video_url),
+        ("traffic_video_url", traffic_video_url), ("verso_config", verso_config),
+        ("thumb_url", thumb_url), ("featured_image_url", featured_image_url),
+        ("traffic_config", traffic_config),
+    ]
+    pairs = [f"{col} = ?" for col, val in cols if val is not None]
+    vals = [val for _, val in cols if val is not None]
+    if pairs:
+        vals.append(campaign_id)
+        with _conn() as cx:
+            cx.execute(
+                f"UPDATE campaigns SET {', '.join(pairs)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                vals,
+            )
     with _conn() as cx:
-        if name is not None:
-            cx.execute(
-                "UPDATE campaigns SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (name, campaign_id),
-            )
-        if figma_file_key is not None:
-            cx.execute(
-                "UPDATE campaigns SET figma_file_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (figma_file_key, campaign_id),
-            )
         return _row(cx.execute("SELECT * FROM campaigns WHERE id = ?", (campaign_id,)).fetchone())
 
 
@@ -299,12 +360,33 @@ def list_carousels(campaign_id: int) -> list[dict]:
             items = get_carousel_items(c["id"])
             c["items"] = items
             c["item_count"] = len(items)
+            assets = get_carousel_assets(c["id"])
+            c["assets"] = assets
+            c["asset_count"] = len(assets)
         return result
 
 
 def get_carousel(carousel_id: int) -> Optional[dict]:
     with _conn() as cx:
         return _row(cx.execute("SELECT * FROM carousels WHERE id = ?", (carousel_id,)).fetchone())
+
+
+def update_carousel(carousel_id: int, name: Optional[str] = None, destination: Optional[str] = None) -> Optional[dict]:
+    cols = [("name", name), ("destination", destination)]
+    pairs = [f"{col} = ?" for col, val in cols if val is not None]
+    vals = [val for _, val in cols if val is not None]
+    if pairs:
+        vals.append(carousel_id)
+        with _conn() as cx:
+            cx.execute(f"UPDATE carousels SET {', '.join(pairs)} WHERE id = ?", vals)
+    with _conn() as cx:
+        row = cx.execute("SELECT * FROM carousels WHERE id = ?", (carousel_id,)).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        result["assets"] = get_carousel_assets(carousel_id)
+        result["items"] = get_carousel_items(carousel_id)
+        return result
 
 
 def delete_carousel(carousel_id: int) -> bool:
@@ -427,3 +509,70 @@ def delete_copy(copy_id: int) -> bool:
     with _conn() as cx:
         cur = cx.execute("DELETE FROM copies WHERE id = ?", (copy_id,))
         return cur.rowcount > 0
+
+
+# ---- carousel_assets ----
+
+def get_carousel_assets(carousel_id: int) -> list[dict]:
+    with _conn() as cx:
+        return _rows(cx.execute(
+            "SELECT * FROM carousel_assets WHERE carousel_id = ? ORDER BY position ASC, id ASC",
+            (carousel_id,),
+        ).fetchall())
+
+
+def create_carousel_asset(
+    carousel_id: int,
+    type: str,
+    file_url: str = "",
+    thumbnail_url: str = "",
+    html_content: str = "",
+    caption: str = "",
+) -> dict:
+    with _conn() as cx:
+        next_pos = cx.execute(
+            "SELECT COALESCE(MAX(position), -1) + 1 FROM carousel_assets WHERE carousel_id = ?",
+            (carousel_id,),
+        ).fetchone()[0]
+        cur = cx.execute(
+            """INSERT INTO carousel_assets (carousel_id, position, type, file_url, thumbnail_url, html_content, caption)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (carousel_id, next_pos, type, file_url, thumbnail_url, html_content, caption),
+        )
+        return _row(cx.execute("SELECT * FROM carousel_assets WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def update_carousel_asset(asset_id: int, caption: Optional[str] = None, position: Optional[int] = None) -> Optional[dict]:
+    cols = [("caption", caption), ("position", position)]
+    pairs = [f"{col} = ?" for col, val in cols if val is not None]
+    vals = [val for _, val in cols if val is not None]
+    if pairs:
+        vals.append(asset_id)
+        with _conn() as cx:
+            cx.execute(f"UPDATE carousel_assets SET {', '.join(pairs)} WHERE id = ?", vals)
+    with _conn() as cx:
+        return _row(cx.execute("SELECT * FROM carousel_assets WHERE id = ?", (asset_id,)).fetchone())
+
+
+def delete_carousel_asset(asset_id: int) -> bool:
+    with _conn() as cx:
+        cur = cx.execute("DELETE FROM carousel_assets WHERE id = ?", (asset_id,))
+        return cur.rowcount > 0
+
+
+def reorder_carousel_assets(carousel_id: int, ordered_ids: list[int]) -> list[dict]:
+    with _conn() as cx:
+        for idx, asset_id in enumerate(ordered_ids):
+            cx.execute(
+                "UPDATE carousel_assets SET position = ? WHERE id = ? AND carousel_id = ?",
+                (idx, asset_id, carousel_id),
+            )
+    return get_carousel_assets(carousel_id)
+
+
+# ---- creative destination ----
+
+def set_creative_destination(creative_id: int, destination: Optional[str]) -> Optional[dict]:
+    with _conn() as cx:
+        cx.execute("UPDATE creatives SET destination = ? WHERE id = ?", (destination, creative_id))
+        return _row(cx.execute("SELECT * FROM creatives WHERE id = ?", (creative_id,)).fetchone())

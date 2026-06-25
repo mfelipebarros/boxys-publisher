@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { Button } from '../ui/Button'
+import type { LocalCopy } from '../../types/index.ts'
 
 interface SearchAds {
   titles: string
@@ -11,6 +12,7 @@ interface SearchAds {
 
 interface Props {
   campaignId: string
+  copies?: LocalCopy[]
 }
 
 const MAX_TITLE_CHARS = 30
@@ -39,10 +41,11 @@ function charWarnings(text: string, limit: number): string[] {
     .map(l => `"${l.slice(0, 20)}…" (${l.length} chars)`)
 }
 
-export function SearchTab({ campaignId }: Props) {
+export function SearchTab({ campaignId, copies = [] }: Props) {
   const qc = useQueryClient()
   const [form, setForm] = useState<SearchAds>({ titles: '', descriptions: '', keywords: '' })
   const [saved, setSaved] = useState(false)
+  const [imported, setImported] = useState<number | null>(null)
 
   const { data } = useQuery({
     queryKey: ['search-ads', campaignId],
@@ -62,6 +65,18 @@ export function SearchTab({ campaignId }: Props) {
     },
   })
 
+  const searchCopies = copies.filter(c => c.type === 'search')
+
+  function importCopy(copy: LocalCopy) {
+    setForm(f => ({
+      titles: copy.title?.trim() || f.titles,
+      descriptions: copy.description?.trim() || f.descriptions,
+      keywords: copy.message?.trim() || f.keywords,
+    }))
+    setImported(copy.id)
+    setTimeout(() => setImported(null), 2000)
+  }
+
   const titleCount = countLines(form.titles)
   const descCount = countLines(form.descriptions)
   const titleWarnings = charWarnings(form.titles, MAX_TITLE_CHARS)
@@ -78,6 +93,40 @@ export function SearchTab({ campaignId }: Props) {
           {saveMut.isPending ? 'Salvando…' : saved ? '✓ Salvo' : 'Salvar'}
         </Button>
       </div>
+
+      {/* Search copies import panel */}
+      {searchCopies.length > 0 && (
+        <div className="mb-6 p-4 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)]">
+          <p className="text-xs font-semibold text-[var(--muted)] mb-3 uppercase tracking-wider">
+            Copies de Search disponíveis
+          </p>
+          <div className="flex flex-col gap-2">
+            {searchCopies.map(copy => (
+              <div key={copy.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-[var(--surface-raised)]">
+                <div className="min-w-0">
+                  <p className="text-xs font-mono text-[var(--accent)] truncate">{copy.name}</p>
+                  {copy.title && (
+                    <p className="text-xs text-[var(--muted)] truncate mt-0.5">{copy.title.split('\n')[0]}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => importCopy(copy)}
+                  className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                    imported === copy.id
+                      ? 'bg-green-900/40 text-green-400'
+                      : 'bg-[var(--accent-bg)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white'
+                  }`}
+                >
+                  {imported === copy.id ? '✓ Importado' : 'Importar'}
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-[var(--muted)] mt-2">
+            Título → Títulos · Descrição → Descrições · Mensagem → Keywords
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-col gap-6">
         {/* Titles */}
