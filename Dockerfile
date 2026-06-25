@@ -1,5 +1,5 @@
 # ---- Stage 1: build React frontend ----
-FROM node:20-slim AS frontend
+FROM node:24-slim AS frontend
 WORKDIR /app/maker-frontend
 COPY maker-frontend/package*.json ./
 RUN npm ci
