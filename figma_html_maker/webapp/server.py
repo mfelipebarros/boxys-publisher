@@ -47,7 +47,7 @@ from . import db
 
 HERE = Path(__file__).resolve().parent
 # Em produção serve o React build; em dev fallback para o Vue estático
-_REACT_DIST = HERE.parent.parent.parent / "maker-frontend-dist"
+_REACT_DIST = HERE.parent.parent / "maker-frontend-dist"
 STATIC_DIR = _REACT_DIST if _REACT_DIST.exists() else HERE / "static"
 OUTPUT_DIR = Path(os.environ.get("OUTPUT_DIR", "./output")).resolve()
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
