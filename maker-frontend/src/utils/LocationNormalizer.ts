@@ -1,4 +1,5 @@
 import type { MetaLocation, LocationSource } from '../types/index.ts';
+import { randomUUID } from './uuid';
 
 const addressTypeLabel: Record<string, string> = {
     city: "Cidade",
@@ -118,7 +119,7 @@ export function normalizeNominatimLocation(
         `Ponto em ${Number(loc.lat).toFixed(5)}, ${Number(loc.lon).toFixed(5)}`;
 
     return {
-        id: String(loc.place_id ?? `${loc.osm_type ?? "osm"}-${loc.osm_id ?? crypto.randomUUID()}`),
+        id: String(loc.place_id ?? `${loc.osm_type ?? "osm"}-${loc.osm_id ?? randomUUID()}`),
         name: fallbackName,
         label: `${typeLabel}: ${fallbackName}`,
         subtitle: displayName && displayName !== fallbackName ? displayName : shortAddress || undefined,

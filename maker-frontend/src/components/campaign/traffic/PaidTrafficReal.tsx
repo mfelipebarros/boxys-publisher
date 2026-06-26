@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { randomUUID } from "../../../utils/uuid";
 import { Globe, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import type {
   GoogleCampaignMode,
@@ -77,7 +78,7 @@ const stripScheduleFields = (
 };
 
 const createAudienceGroup = (label: string): AudienceGroup => ({
-  id: crypto.randomUUID(),
+  id: randomUUID(),
   label,
   items: [],
 });

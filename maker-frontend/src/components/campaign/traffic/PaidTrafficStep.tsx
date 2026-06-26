@@ -1,5 +1,6 @@
 import { Autocomplete, TextField } from "@mui/material";
 import React, { useEffect, useState } from "react";
+import { randomUUID } from "../../../utils/uuid";
 import type {
   AudienceGroup,
   MetaAudience,
@@ -196,7 +197,7 @@ const PaidTrafficStep = ({
   };
 
   const createAudienceGroup = (label: string): AudienceGroup => ({
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     label,
     items: [],
   });
