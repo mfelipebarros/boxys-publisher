@@ -6,7 +6,7 @@ ENV VITE_SUPABASE_URL=$BOXYS_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$BOXYS_SUPABASE_ANON_KEY
 WORKDIR /app/maker-frontend
 COPY maker-frontend/package*.json ./
-RUN npm ci
+RUN npm install
 COPY maker-frontend/ ./
 RUN npm run build
 
