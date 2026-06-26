@@ -34,30 +34,98 @@ function formatCopyBlock(c: LocalCopy): string {
   return lines.join('\n')
 }
 
+function CopyDetailModal({ copy, onEdit, onClose }: { copy: LocalCopy; onEdit: () => void; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-end"
+      style={{ background: 'rgba(0,0,0,.6)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="h-full w-full max-w-2xl bg-[var(--surface)] border-l border-[var(--line)] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--line)] flex-none">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm text-[var(--accent)]">{copy.name}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${TYPE_BADGE[copy.type]}`}>
+                {TYPE_BADGE_LABEL[copy.type]}
+              </span>
+            </div>
+            {copy.title && <p className="text-sm font-semibold text-[var(--ink)] mt-1">{copy.title}</p>}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={onEdit}>Editar</Button>
+            <button onClick={onClose} className="text-[var(--muted)] hover:text-[var(--ink)] text-lg leading-none">×</button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-6">
+          {copy.title && (
+            <div>
+              <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">Título</p>
+              <p className="text-sm text-[var(--ink)]">{copy.title}</p>
+            </div>
+          )}
+          {copy.description && (
+            <div>
+              <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">Descrição</p>
+              <p className="text-sm text-[var(--ink-soft)] whitespace-pre-wrap">{copy.description}</p>
+            </div>
+          )}
+          {copy.message && (
+            <div>
+              <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">Mensagem / CTA</p>
+              <p className="text-sm text-[var(--ink-soft)] italic">"{copy.message}"</p>
+            </div>
+          )}
+          {copy.content && (
+            <div>
+              <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">Conteúdo</p>
+              <pre className="text-xs text-[var(--ink-soft)] font-mono whitespace-pre-wrap bg-[var(--surface-raised)] rounded-lg p-4 border border-[var(--line)]">{copy.content}</pre>
+            </div>
+          )}
+          {copy.content_html && (
+            <div>
+              <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-2">Conteúdo rich-text</p>
+              <div
+                className="prose prose-sm prose-invert max-w-none text-[var(--ink-soft)] bg-[var(--surface-raised)] rounded-lg p-4 border border-[var(--line)]"
+                dangerouslySetInnerHTML={{ __html: copy.content_html }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CopyCard({
   copy,
   selected,
   onToggle,
-  onEdit,
+  onOpen,
   onDelete,
 }: {
   copy: LocalCopy
   selected: boolean
   onToggle: () => void
-  onEdit: () => void
+  onOpen: () => void
   onDelete: () => void
 }) {
   return (
     <div
-      className={`bg-[var(--surface)] rounded-[var(--radius)] border transition-all p-4 ${
+      className={`bg-[var(--surface)] rounded-[var(--radius)] border transition-all p-4 cursor-pointer hover:border-[var(--ink-soft)] ${
         selected ? 'border-[var(--accent)]' : 'border-[var(--line)]'
       }`}
+      onClick={onOpen}
     >
       <div className="flex items-start gap-3">
         <input
           type="checkbox"
           checked={selected}
-          onChange={onToggle}
+          onChange={e => { e.stopPropagation(); onToggle() }}
+          onClick={e => e.stopPropagation()}
           className="mt-0.5 accent-[var(--accent)]"
         />
         <div className="flex-1 min-w-0">
@@ -76,8 +144,7 @@ function CopyCard({
             <p className="text-xs text-[var(--ink-soft)] mt-1 italic">"{copy.message}"</p>
           )}
         </div>
-        <div className="flex gap-1.5 flex-none">
-          <Button size="sm" variant="secondary" onClick={onEdit}>Editar</Button>
+        <div className="flex gap-1.5 flex-none" onClick={e => e.stopPropagation()}>
           <Button size="sm" variant="danger" onClick={onDelete}>×</Button>
         </div>
       </div>
@@ -107,6 +174,7 @@ export function CopiesTab({ campaignId, copies }: Props) {
   const [selected, setSelected] = useState<number[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [editCopy, setEditCopy] = useState<LocalCopy | null>(null)
+  const [detailCopy, setDetailCopy] = useState<LocalCopy | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [toastMsg, setToastMsg] = useState('')
   const [promptFallback, setPromptFallback] = useState<{ title: string; text: string } | null>(null)
@@ -221,7 +289,7 @@ export function CopiesTab({ campaignId, copies }: Props) {
               copy={c}
               selected={selected.includes(c.id)}
               onToggle={() => toggleSelect(c.id)}
-              onEdit={() => setEditCopy(c)}
+              onOpen={() => setDetailCopy(c)}
               onDelete={() => {
                 if (confirm(`Deletar copy "${c.name}"?`)) deleteMut.mutate(c.id)
               }}
@@ -277,6 +345,13 @@ export function CopiesTab({ campaignId, copies }: Props) {
 
       {showCreate && <CopyForm campaignId={campaignId} onClose={() => setShowCreate(false)} />}
       {editCopy && <CopyForm campaignId={campaignId} copy={editCopy} onClose={() => setEditCopy(null)} />}
+      {detailCopy && !editCopy && (
+        <CopyDetailModal
+          copy={detailCopy}
+          onEdit={() => { setEditCopy(detailCopy); setDetailCopy(null) }}
+          onClose={() => setDetailCopy(null)}
+        />
+      )}
       {showImport && <ImportCopiesModal campaignId={campaignId} onClose={() => setShowImport(false)} />}
     </div>
   )

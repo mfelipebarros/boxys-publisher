@@ -1341,9 +1341,11 @@ def import_copies(campaign_id: int, req: ImportCopiesRequest) -> JSONResponse:
         "conteudo": "conteudo",
         "variacao": "variacao",
     }
-    # Regex to find any known field label at line start
+    # Only stop lookahead at KNOWN field names so carousel/LP content (Visual:, Headline:, Slide N:, etc.)
+    # doesn't prematurely terminate the Conteúdo capture.
+    _KNOWN_FIELD_RE = r'(?:id|t[ií]tulo|descri[cç][aã]o|mensagem(?:/cta)?|conte[uú]do|varia[cç][aã]o)'
     _FIELD_PAT = _re.compile(
-        r'(?im)^([A-Za-zÀ-ÿ/]+)\s*:\s*(.*?)(?=\n[A-Za-zÀ-ÿ/]+\s*:|\Z)',
+        rf'(?im)^([A-Za-zÀ-ÿ/]+(?:/[A-Za-zÀ-ÿ]+)?)\s*:\s*(.*?)(?=\n{_KNOWN_FIELD_RE}\s*:|\Z)',
         _re.DOTALL,
     )
 
