@@ -513,6 +513,178 @@ def boxys_publish(req: PublishBoxyRequest, request: Request) -> dict:
     return {"status": "ok", "record": created}
 
 
+class PublishTrafficRequest(BaseModel):
+    local_campaign_id: int
+
+
+@app.post("/api/boxys/publish-traffic")
+def boxys_publish_traffic(req: PublishTrafficRequest, request: Request) -> dict:
+    token = _get_token(request)
+    hdrs = {**_sb_headers(token), "Prefer": "return=representation"}
+    hdrs_no_return = _sb_headers(token)
+
+    campaign = db.get_campaign(req.local_campaign_id)
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha local não encontrada"}, status_code=404)
+
+    boxys_id = campaign.get("boxys_campaign_id")
+    if not boxys_id:
+        return JSONResponse({"status": "error", "error": "Campanha não está vinculada ao Boxys"}, status_code=400)
+
+    traffic_raw = campaign.get("traffic_config") or ""
+    if not traffic_raw:
+        return JSONResponse({"status": "error", "error": "Nenhuma configuração de tráfego encontrada"}, status_code=400)
+
+    try:
+        traffic: dict = _json.loads(traffic_raw)
+    except Exception:
+        return JSONResponse({"status": "error", "error": "traffic_config inválido"}, status_code=400)
+
+    general = traffic.get("generalInfos", {})
+    audience_groups: list = traffic.get("audienceGroups", [])
+    locations: list = traffic.get("locations", [])
+    google_info: dict | None = traffic.get("googleInfo")
+
+    # 1. Upsert paid_traffic row
+    try:
+        r_existing = _requests.get(
+            f"{_SB_URL}/rest/v1/paid_traffic",
+            params={"campaign_id": f"eq.{boxys_id}", "select": "id"},
+            headers=hdrs_no_return,
+            timeout=10,
+        )
+        existing_rows = r_existing.json() if r_existing.status_code == 200 else []
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": f"Supabase lookup: {e}"}, status_code=503)
+
+    pt_payload = {
+        "campaign_id": boxys_id,
+        "objective": general.get("objective", "OUTCOME_LEADS"),
+        "gender": general.get("gender", "all"),
+        "min_age": general.get("min_age", 18),
+        "max_age": general.get("max_age", 65),
+        "budget": general.get("budget", 0),
+        "placements": general.get("placements"),
+    }
+
+    pt_id: str | None = None
+    try:
+        if existing_rows and isinstance(existing_rows, list) and len(existing_rows) > 0:
+            pt_id = existing_rows[0]["id"]
+            r_pt = _requests.patch(
+                f"{_SB_URL}/rest/v1/paid_traffic",
+                params={"id": f"eq.{pt_id}"},
+                json=pt_payload,
+                headers=hdrs,
+                timeout=10,
+            )
+        else:
+            r_pt = _requests.post(
+                f"{_SB_URL}/rest/v1/paid_traffic",
+                json=pt_payload,
+                headers=hdrs,
+                timeout=10,
+            )
+            if r_pt.status_code in (200, 201):
+                created = r_pt.json()
+                row = (created[0] if isinstance(created, list) else created) or {}
+                pt_id = row.get("id")
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": f"Supabase paid_traffic: {e}"}, status_code=503)
+
+    if not pt_id:
+        return JSONResponse({"status": "error", "error": "Falha ao obter ID do paid_traffic"}, status_code=500)
+
+    # 2. Replace meta_audience rows
+    try:
+        _requests.delete(
+            f"{_SB_URL}/rest/v1/meta_audience",
+            params={"paid_traffic_id": f"eq.{pt_id}"},
+            headers=hdrs_no_return,
+            timeout=10,
+        )
+        for group_pos, group in enumerate(audience_groups):
+            items = group.get("items", [])
+            for item_pos, item in enumerate(items):
+                row = {
+                    "paid_traffic_id": pt_id,
+                    "group_id": group.get("id", ""),
+                    "group_label": group.get("label", ""),
+                    "group_position": group_pos,
+                    "meta_id": item.get("id", ""),
+                    "name": item.get("name", ""),
+                    "targeting_key": item.get("targetingKey", ""),
+                    "path": item.get("path", []),
+                    "position": item_pos,
+                }
+                _requests.post(
+                    f"{_SB_URL}/rest/v1/meta_audience",
+                    json=row,
+                    headers=hdrs_no_return,
+                    timeout=10,
+                )
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": f"Supabase meta_audience: {e}"}, status_code=503)
+
+    # 3. Replace meta_location rows
+    try:
+        _requests.delete(
+            f"{_SB_URL}/rest/v1/meta_location",
+            params={"paid_traffic_id": f"eq.{pt_id}"},
+            headers=hdrs_no_return,
+            timeout=10,
+        )
+        for loc in locations:
+            loc_row = {k: v for k, v in loc.items() if k != "id"}
+            loc_row["paid_traffic_id"] = pt_id
+            _requests.post(
+                f"{_SB_URL}/rest/v1/meta_location",
+                json=loc_row,
+                headers=hdrs_no_return,
+                timeout=10,
+            )
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": f"Supabase meta_location: {e}"}, status_code=503)
+
+    # 4. Upsert google_traffic
+    if google_info:
+        try:
+            r_gt = _requests.get(
+                f"{_SB_URL}/rest/v1/google_traffic",
+                params={"paid_traffic_id": f"eq.{pt_id}", "select": "id"},
+                headers=hdrs_no_return,
+                timeout=10,
+            )
+            gt_rows = r_gt.json() if r_gt.status_code == 200 else []
+            gt_payload = {
+                "paid_traffic_id": pt_id,
+                "active_type": google_info.get("activeType"),
+                "search": google_info.get("search"),
+                "performance_max": google_info.get("performance_max"),
+                "demand_gen": google_info.get("demand_gen"),
+            }
+            if gt_rows and isinstance(gt_rows, list) and len(gt_rows) > 0:
+                gt_id = gt_rows[0]["id"]
+                _requests.patch(
+                    f"{_SB_URL}/rest/v1/google_traffic",
+                    params={"id": f"eq.{gt_id}"},
+                    json={k: v for k, v in gt_payload.items() if k != "paid_traffic_id"},
+                    headers=hdrs_no_return,
+                    timeout=10,
+                )
+            else:
+                _requests.post(
+                    f"{_SB_URL}/rest/v1/google_traffic",
+                    json=gt_payload,
+                    headers=hdrs_no_return,
+                    timeout=10,
+                )
+        except Exception as e:
+            return JSONResponse({"status": "error", "error": f"Supabase google_traffic: {e}"}, status_code=503)
+
+    return {"status": "ok", "paid_traffic_id": pt_id}
+
+
 # ---- Prompts ----
 
 _PROMPT_LP = """\

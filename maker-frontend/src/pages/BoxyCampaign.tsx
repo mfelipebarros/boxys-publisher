@@ -13,7 +13,6 @@ import { IATab } from '../components/campaign/IATab'
 import { DescricoesTab } from '../components/campaign/DescricoesTab'
 import { DesignTab } from '../components/campaign/DesignTab'
 import { PublicarTab } from '../components/campaign/PublicarTab'
-import { SearchTab } from '../components/campaign/SearchTab'
 import { TrafegoPagoTab } from '../components/campaign/TrafegoPagoTab'
 import type {
   BoxyCampaign, BoxyAdvertisement, BocySocialCreative, BoxyLandingPage,
@@ -41,7 +40,6 @@ const TABS = [
   { key: 'banners', label: 'Banners' },
   { key: 'carousels', label: 'Carrosseis' },
   { key: 'videos', label: 'Videos' },
-  { key: 'search', label: 'Search Ads' },
   { key: 'trafego', label: 'Tráfego Pago' },
   { key: 'ia', label: 'IA' },
   { key: 'descricoes', label: 'Descrições' },
@@ -253,9 +251,6 @@ export function BoxyCampaignPage() {
               landing_pages={landing_pages}
             />
           : <Loading />
-      )}
-      {tab === 'search' && localCampaignId && (
-        <SearchTab campaignId={localCampaignId} copies={copies} />
       )}
       {tab === 'trafego' && (
         localReady && localCampaign

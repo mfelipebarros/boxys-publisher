@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type { LocalCampaign, LocalCopy, PaidTrafficInfoComplete } from '../../types/index.ts'
@@ -12,6 +12,9 @@ interface Props {
 
 export function TrafegoPagoTab({ campaignId, campaign, copies = [] }: Props) {
   const qc = useQueryClient()
+  const [publishing, setPublishing] = useState(false)
+  const [publishStatus, setPublishStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   const initialData = (() => {
     let data: PaidTrafficInfoComplete | undefined
@@ -52,11 +55,46 @@ export function TrafegoPagoTab({ campaignId, campaign, copies = [] }: Props) {
     qc.invalidateQueries({ queryKey: ['local-campaign', campaignId] })
   }, [campaignId, qc])
 
+  const handlePublish = async () => {
+    setPublishing(true)
+    setPublishStatus('idle')
+    setPublishError(null)
+    try {
+      await api.post(`/api/boxys/publish-traffic`, { local_campaign_id: Number(campaignId) })
+      setPublishStatus('ok')
+    } catch (err: unknown) {
+      setPublishStatus('error')
+      setPublishError(err instanceof Error ? err.message : 'Erro desconhecido')
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-[var(--ink)]">Tráfego Pago</h2>
-        <p className="text-xs text-[var(--muted)] mt-1">Configure Meta Ads e Google Ads para esta campanha.</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--ink)]">Tráfego Pago</h2>
+          <p className="text-xs text-[var(--muted)] mt-1">Configure Meta Ads e Google Ads para esta campanha.</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={handlePublish}
+            disabled={publishing || !campaign.boxys_campaign_id}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--accent)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+          >
+            {publishing ? 'Publicando…' : 'Publicar no Boxys'}
+          </button>
+          {publishStatus === 'ok' && (
+            <span className="text-xs text-green-400">Publicado com sucesso!</span>
+          )}
+          {publishStatus === 'error' && (
+            <span className="text-xs text-red-400">{publishError}</span>
+          )}
+          {!campaign.boxys_campaign_id && (
+            <span className="text-xs text-[var(--muted)]">Campanha não vinculada ao Boxys</span>
+          )}
+        </div>
       </div>
       <PaidTrafficReal
         onNextStep={() => {}}
