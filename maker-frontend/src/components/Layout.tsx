@@ -52,8 +52,7 @@ export function Layout({ children }: { children: ReactNode }) {
         style={{ height: 'var(--topbar-h)', background: 'var(--surface)' }}
       >
         <Link to="/" className="flex items-baseline gap-2 flex-none">
-          <span className="font-bold text-lg text-[var(--ink)]">Boxys</span>
-          <span className="text-[11px] text-[var(--muted)] font-mono">figma → html</span>
+          <span className="font-bold text-lg text-[var(--ink)]">Makezinho</span>
         </Link>
         <div className="flex-1" />
         <div className="flex items-center gap-2 font-mono text-[11px] text-[var(--muted)] bg-[var(--surface-raised)] border border-[var(--line)] px-3 py-1.5 rounded-lg">
