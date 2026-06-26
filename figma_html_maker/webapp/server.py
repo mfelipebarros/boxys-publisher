@@ -1690,8 +1690,6 @@ if _assets_dir.exists():
     app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="react-assets")
 
 # ---- SPA catch-all: serve index.html para qualquer rota não reconhecida ----
-from starlette.routing import Route as _Route
-
 @app.get("/{full_path:path}", include_in_schema=False)
 def spa_fallback(full_path: str) -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
