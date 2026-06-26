@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type { LocalCampaign, LocalCopy, PaidTrafficInfoComplete } from '../../types/index.ts'
 import PaidTrafficReal from './traffic/PaidTrafficReal'
+import { LoginMetaButton } from '../LoginMetaButton'
+import { LoginGoogleAdsButton } from '../LoginGoogleAdsButton'
 
 interface Props {
   campaignId: string
@@ -76,6 +78,10 @@ export function TrafegoPagoTab({ campaignId, campaign, copies = [] }: Props) {
         <div>
           <h2 className="text-lg font-semibold text-[var(--ink)]">Tráfego Pago</h2>
           <p className="text-xs text-[var(--muted)] mt-1">Configure Meta Ads e Google Ads para esta campanha.</p>
+          <div className="mt-2 flex items-center gap-2">
+            <LoginMetaButton />
+            <LoginGoogleAdsButton />
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1">
           <button

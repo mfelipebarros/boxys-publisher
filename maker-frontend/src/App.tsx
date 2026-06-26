@@ -5,6 +5,8 @@ import { Login } from './pages/Login'
 import { Layout } from './components/Layout'
 import { Home } from './pages/Home'
 import { BoxyCampaignPage } from './pages/BoxyCampaign'
+import { MetaCallback } from './pages/MetaCallback'
+import { GoogleAdsFallback } from './pages/GoogleAdsFallback'
 
 const qc = new QueryClient()
 
@@ -28,6 +30,8 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/campaigns/:id" element={<Navigate to="/" replace />} />
               <Route path="/boxys/:id" element={<BoxyCampaignPage />} />
+              <Route path="/auth/callback/meta" element={<MetaCallback />} />
+              <Route path="/auth/callback/google-ads" element={<GoogleAdsFallback />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>
