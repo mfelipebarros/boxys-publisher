@@ -33,7 +33,20 @@ _COPY_TYPES = ["criativo", "search", "display", "pmax", "landing_page", "asset"]
 _SYSTEM_PROMPT = """\
 Você é um extrator de copies de marketing da plataforma Boxys. Recebe um documento \
 escrito por humanos (formato livre, com variações de rótulo e espaçamento) descrevendo \
-anúncios de uma campanha e devolve uma lista estruturada de copies.
+anúncios de uma campanha e devolve (1) os metadados da campanha e (2) uma lista \
+estruturada de copies.
+
+METADADOS DA CAMPANHA (objeto `campaign`):
+- `description`: o que é a campanha — objetivo e tema principal. Sintetize a partir do documento.
+- `target_audience_description`: para quem é a campanha — público-alvo ideal e características.
+  Infira do conteúdo (ex: investidores, perfil, dores) quando não estiver explícito.
+- `usage_instructions`: como a campanha deve ser usada — orientações de replicação/personalização. Infira se necessário.
+- `one_liner`: frase curta (verso) que resume o diferencial da campanha.
+- `campaign_type`: tipo (ex: lançamento, pronta entrega, investimento, remarketing).
+- `broker_profile`: perfil de corretor ideal (ex: consultivo, especialista em investidores), se inferível.
+- `clear_description`: leitura comercial clara dos diferenciais e contexto.
+Preencha o que conseguir inferir do documento; use string vazia "" quando realmente não houver base.\
+
 
 CONVENÇÃO DE ID (obrigatória em `name`): [CAMPANHA]-[CANAL]-[FORMATO][VARIAÇÃO]
 - Campanha: 4 caracteres em caixa alta (ex: INVB, DMBC)
@@ -91,18 +104,42 @@ _COPY_ITEM_SCHEMA = {
     "required": ["name", "type", "title", "description", "message", "content", "content_html"],
 }
 
+_CAMPAIGN_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "description": {"type": "string"},
+        "target_audience_description": {"type": "string"},
+        "usage_instructions": {"type": "string"},
+        "one_liner": {"type": "string"},
+        "campaign_type": {"type": "string"},
+        "broker_profile": {"type": "string"},
+        "clear_description": {"type": "string"},
+    },
+    "required": [
+        "description", "target_audience_description", "usage_instructions",
+        "one_liner", "campaign_type", "broker_profile", "clear_description",
+    ],
+}
+
 _RESPONSE_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
+        "campaign": _CAMPAIGN_SCHEMA,
         "copies": {"type": "array", "items": _COPY_ITEM_SCHEMA},
     },
-    "required": ["copies"],
+    "required": ["campaign", "copies"],
 }
 
+_CAMPAIGN_FIELDS = (
+    "description", "target_audience_description", "usage_instructions",
+    "one_liner", "campaign_type", "broker_profile", "clear_description",
+)
 
-def extract_copies(text: str) -> List[dict]:
-    """Chama o OpenRouter e devolve a lista de copies estruturadas (sem persistir).
+
+def extract_document(text: str) -> dict:
+    """Chama o OpenRouter e devolve {'campaign': {...}, 'copies': [...]} (sem persistir).
 
     Lança RuntimeError se a credencial estiver ausente ou a API falhar.
     """
@@ -169,4 +206,8 @@ def extract_copies(text: str) -> List[dict]:
             "content": c.get("content", ""),
             "content_html": c.get("content_html", ""),
         })
-    return norm
+
+    raw_campaign = data.get("campaign") or {}
+    campaign = {f: (raw_campaign.get(f) or "") for f in _CAMPAIGN_FIELDS}
+
+    return {"campaign": campaign, "copies": norm}

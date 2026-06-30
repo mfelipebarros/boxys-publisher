@@ -45,6 +45,7 @@ from ..sources.figma_api import FigmaApiSource
 from ..storage.supabase import SupabaseUploader
 from . import db
 from . import ai_extract
+from . import doc_text
 
 HERE = Path(__file__).resolve().parent
 # Em produção serve o React build; em dev fallback para o Vue estático
@@ -1530,12 +1531,8 @@ class ExtractCopiesRequest(BaseModel):
     text: str
 
 
-@app.post("/api/campaigns/{campaign_id}/copies/extract")
-def extract_copies(campaign_id: int, req: ExtractCopiesRequest) -> JSONResponse:
-    """Extrai copies estruturadas de um documento livre via IA (OpenRouter).
-
-    NÃO persiste — devolve a lista para revisão na UI antes de salvar via /copies/bulk.
-    """
+def _run_extraction(campaign_id: int, text: str) -> JSONResponse:
+    """Roda a extração por IA sobre `text` e devolve {campaign, copies}. NÃO persiste."""
     campaign = db.get_campaign(campaign_id)
     if not campaign:
         return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
@@ -1546,16 +1543,33 @@ def extract_copies(campaign_id: int, req: ExtractCopiesRequest) -> JSONResponse:
             status_code=400,
         )
 
-    text = (req.text or "").strip()
+    text = (text or "").strip()
     if not text:
         return JSONResponse({"status": "error", "error": "Texto vazio"}, status_code=400)
 
     try:
-        copies = ai_extract.extract_copies(text)
+        result = ai_extract.extract_document(text)
     except RuntimeError as exc:
         return JSONResponse({"status": "error", "error": str(exc)}, status_code=502)
 
-    return JSONResponse({"status": "ok", "copies": copies})
+    return JSONResponse({"status": "ok", **result})
+
+
+@app.post("/api/campaigns/{campaign_id}/copies/extract")
+def extract_copies(campaign_id: int, req: ExtractCopiesRequest) -> JSONResponse:
+    """Extrai campanha + copies de um texto colado (.txt/.md lido no cliente)."""
+    return _run_extraction(campaign_id, req.text)
+
+
+@app.post("/api/campaigns/{campaign_id}/copies/extract-file")
+async def extract_copies_file(campaign_id: int, file: UploadFile = File(...)) -> JSONResponse:
+    """Extrai campanha + copies de um documento enviado (.txt/.md/.docx/.pdf)."""
+    data = await file.read()
+    try:
+        text = doc_text.extract_text_from_upload(file.filename or "", data)
+    except RuntimeError as exc:
+        return JSONResponse({"status": "error", "error": str(exc)}, status_code=400)
+    return _run_extraction(campaign_id, text)
 
 
 class BulkCopyItem(BaseModel):
@@ -1568,16 +1582,54 @@ class BulkCopyItem(BaseModel):
     content_html: str = ""
 
 
+class BulkCampaignFields(BaseModel):
+    description: Optional[str] = None
+    target_audience_description: Optional[str] = None
+    usage_instructions: Optional[str] = None
+    # campos do verso (mesclados no verso_config existente)
+    one_liner: Optional[str] = None
+    campaign_type: Optional[str] = None
+    broker_profile: Optional[str] = None
+    clear_description: Optional[str] = None
+
+
 class BulkCopiesRequest(BaseModel):
     copies: List[BulkCopyItem]
+    campaign: Optional[BulkCampaignFields] = None
+
+
+_VERSO_KEYS = ("one_liner", "campaign_type", "broker_profile", "clear_description")
 
 
 @app.post("/api/campaigns/{campaign_id}/copies/bulk")
 def bulk_create_copies(campaign_id: int, req: BulkCopiesRequest) -> JSONResponse:
-    """Persiste uma lista de copies já revisadas (vindas da extração por IA)."""
+    """Persiste copies revisadas e, se enviados, os campos da campanha (descrição + verso)."""
     campaign = db.get_campaign(campaign_id)
     if not campaign:
         return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+
+    # aplica campos de campanha (descrição + verso) antes das copies
+    if req.campaign is not None:
+        c = req.campaign
+        # mescla os campos de verso no verso_config existente (preserva cores/ratings)
+        try:
+            verso = _json.loads(campaign.get("verso_config") or "{}")
+            if not isinstance(verso, dict):
+                verso = {}
+        except (ValueError, TypeError):
+            verso = {}
+        for key in _VERSO_KEYS:
+            val = getattr(c, key)
+            if val:
+                verso[key] = val
+
+        db.update_campaign(
+            campaign_id,
+            description=c.description,
+            target_audience_description=c.target_audience_description,
+            usage_instructions=c.usage_instructions,
+            verso_config=_json.dumps(verso, ensure_ascii=False),
+        )
 
     created = []
     for item in req.copies:
