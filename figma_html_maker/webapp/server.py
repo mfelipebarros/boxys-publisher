@@ -44,6 +44,7 @@ from ..pipeline import build_batch, build_from_template, campaign_slug
 from ..sources.figma_api import FigmaApiSource
 from ..storage.supabase import SupabaseUploader
 from . import db
+from . import ai_extract
 
 HERE = Path(__file__).resolve().parent
 # Em produção serve o React build; em dev fallback para o Vue estático
@@ -270,6 +271,7 @@ def health() -> dict:
         "supabase_key": bool(os.environ.get("SUPABASE_SERVICE_KEY", "").strip()),
         "bucket": os.environ.get("SUPABASE_BUCKET", "ad-templates"),
         "auth_enabled": AUTH_ENABLED,
+        "ai_extract": ai_extract.is_configured(),
     }
 
 
@@ -1412,6 +1414,80 @@ def import_copies(campaign_id: int, req: ImportCopiesRequest) -> JSONResponse:
 
     db.touch_campaign(campaign_id)
     return JSONResponse({"status": "ok", "created": len(created), "copies": created, "errors": errors})
+
+
+class ExtractCopiesRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/campaigns/{campaign_id}/copies/extract")
+def extract_copies(campaign_id: int, req: ExtractCopiesRequest) -> JSONResponse:
+    """Extrai copies estruturadas de um documento livre via IA (OpenRouter).
+
+    NÃO persiste — devolve a lista para revisão na UI antes de salvar via /copies/bulk.
+    """
+    campaign = db.get_campaign(campaign_id)
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+
+    if not ai_extract.is_configured():
+        return JSONResponse(
+            {"status": "config_error", "error": "OPENROUTER_API_KEY não configurada no servidor"},
+            status_code=400,
+        )
+
+    text = (req.text or "").strip()
+    if not text:
+        return JSONResponse({"status": "error", "error": "Texto vazio"}, status_code=400)
+
+    try:
+        copies = ai_extract.extract_copies(text)
+    except RuntimeError as exc:
+        return JSONResponse({"status": "error", "error": str(exc)}, status_code=502)
+
+    return JSONResponse({"status": "ok", "copies": copies})
+
+
+class BulkCopyItem(BaseModel):
+    name: str
+    type: str = "criativo"
+    title: str = ""
+    description: str = ""
+    message: str = ""
+    content: str = ""
+    content_html: str = ""
+
+
+class BulkCopiesRequest(BaseModel):
+    copies: List[BulkCopyItem]
+
+
+@app.post("/api/campaigns/{campaign_id}/copies/bulk")
+def bulk_create_copies(campaign_id: int, req: BulkCopiesRequest) -> JSONResponse:
+    """Persiste uma lista de copies já revisadas (vindas da extração por IA)."""
+    campaign = db.get_campaign(campaign_id)
+    if not campaign:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+
+    created = []
+    for item in req.copies:
+        ref_id = (item.name or "").strip()
+        if not ref_id:
+            continue
+        cp = db.create_copy(
+            campaign_id=campaign_id,
+            name=ref_id,
+            title=item.title,
+            description=item.description,
+            message=item.message,
+            content_html=item.content_html,
+            type=item.type,
+            content=item.content,
+        )
+        created.append(cp)
+
+    db.touch_campaign(campaign_id)
+    return JSONResponse({"status": "ok", "created": len(created), "copies": created})
 
 
 @app.delete("/api/copies/{copy_id}")

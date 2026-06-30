@@ -186,7 +186,7 @@ export interface LocalCopy {
   description: string
   message: string
   content_html: string
-  type: 'criativo' | 'landing_page' | 'search'
+  type: 'criativo' | 'landing_page' | 'search' | 'display' | 'pmax' | 'asset'
   content: string
   criativo_count?: number
   created_at: string

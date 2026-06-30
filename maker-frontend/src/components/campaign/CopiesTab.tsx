@@ -16,12 +16,18 @@ type CopyType = LocalCopy['type']
 const TYPE_BADGE: Record<CopyType, string> = {
   criativo: 'bg-blue-950/50 text-blue-400',
   search: 'bg-amber-950/50 text-amber-400',
+  display: 'bg-teal-950/50 text-teal-400',
+  pmax: 'bg-rose-950/50 text-rose-400',
+  asset: 'bg-slate-800/60 text-slate-300',
   landing_page: 'bg-purple-950/50 text-purple-400',
 }
 
 const TYPE_BADGE_LABEL: Record<CopyType, string> = {
   criativo: 'criativo',
   search: 'search',
+  display: 'display',
+  pmax: 'pmax',
+  asset: 'asset',
   landing_page: 'LP',
 }
 
@@ -32,6 +38,70 @@ function formatCopyBlock(c: LocalCopy): string {
   if (c.message) lines.push(`Mensagem/CTA: ${c.message}`)
   if (c.content) lines.push(`Conteúdo:\n${c.content}`)
   return lines.join('\n')
+}
+
+// content_html pode conter HTML (legado) OU JSON estruturado (carrossel/Search/Display/PMax).
+// Detecta JSON e renderiza legível; caso contrário trata como HTML.
+function ContentHtmlBlock({ raw }: { raw: string }) {
+  let parsed: unknown = null
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    try { parsed = JSON.parse(trimmed) } catch { parsed = null }
+  }
+
+  if (Array.isArray(parsed)) {
+    return (
+      <div>
+        <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-2">Slides do carrossel</p>
+        <div className="flex flex-col gap-3">
+          {parsed.map((slide, i) => (
+            <div key={i} className="bg-[var(--surface-raised)] rounded-lg p-3 border border-[var(--line)]">
+              <p className="text-xs font-semibold text-[var(--accent)] mb-1">
+                Slide {String((slide as Record<string, unknown>).slide ?? i + 1)}
+                {(slide as Record<string, unknown>).label ? ` — ${String((slide as Record<string, unknown>).label)}` : ''}
+              </p>
+              {Object.entries(slide as Record<string, unknown>)
+                .filter(([k]) => k !== 'slide' && k !== 'label')
+                .map(([k, v]) => (
+                  <p key={k} className="text-xs text-[var(--ink-soft)]">
+                    <span className="text-[var(--muted)]">{k}:</span> {String(v)}
+                  </p>
+                ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    const obj = parsed as Record<string, unknown>
+    return (
+      <div>
+        <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-2">Blocos de texto</p>
+        <div className="flex flex-col gap-3">
+          {Object.entries(obj).map(([key, list]) => (
+            <div key={key} className="bg-[var(--surface-raised)] rounded-lg p-3 border border-[var(--line)]">
+              <p className="text-xs font-semibold text-[var(--accent)] mb-1">{key}</p>
+              <ul className="text-xs text-[var(--ink-soft)] list-disc list-inside space-y-0.5">
+                {(Array.isArray(list) ? list : [list]).map((item, i) => <li key={i}>{String(item)}</li>)}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-2">Conteúdo rich-text</p>
+      <div
+        className="prose prose-sm prose-invert max-w-none text-[var(--ink-soft)] bg-[var(--surface-raised)] rounded-lg p-4 border border-[var(--line)]"
+        dangerouslySetInnerHTML={{ __html: raw }}
+      />
+    </div>
+  )
 }
 
 function CopyDetailModal({ copy, onEdit, onClose }: { copy: LocalCopy; onEdit: () => void; onClose: () => void }) {
@@ -85,15 +155,7 @@ function CopyDetailModal({ copy, onEdit, onClose }: { copy: LocalCopy; onEdit: (
               <pre className="text-xs text-[var(--ink-soft)] font-mono whitespace-pre-wrap bg-[var(--surface-raised)] rounded-lg p-4 border border-[var(--line)]">{copy.content}</pre>
             </div>
           )}
-          {copy.content_html && (
-            <div>
-              <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-2">Conteúdo rich-text</p>
-              <div
-                className="prose prose-sm prose-invert max-w-none text-[var(--ink-soft)] bg-[var(--surface-raised)] rounded-lg p-4 border border-[var(--line)]"
-                dangerouslySetInnerHTML={{ __html: copy.content_html }}
-              />
-            </div>
-          )}
+          {copy.content_html && <ContentHtmlBlock raw={copy.content_html} />}
         </div>
       </div>
     </div>

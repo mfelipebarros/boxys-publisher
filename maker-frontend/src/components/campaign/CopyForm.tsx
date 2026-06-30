@@ -17,7 +17,7 @@ interface CopyPayload {
   title: string
   description: string
   message: string
-  type: 'criativo' | 'landing_page' | 'search'
+  type: 'criativo' | 'landing_page' | 'search' | 'display' | 'pmax' | 'asset'
   content: string
   content_html: string
 }
@@ -100,7 +100,7 @@ export function CopyForm({ campaignId, copy, onClose }: Props) {
               </div>
               <div>
                 <FieldLabel>Tipo</FieldLabel>
-                <Select value={form.type} onChange={e => set('type', e.target.value as 'criativo' | 'landing_page')}>
+                <Select value={form.type} onChange={e => set('type', e.target.value as CopyPayload['type'])}>
                   <option value="criativo">Criativo</option>
                   <option value="landing_page">Landing Page</option>
                 </Select>
