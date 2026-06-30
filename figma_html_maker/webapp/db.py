@@ -120,6 +120,10 @@ def _migrate() -> None:
     _safe_add_col("creatives", "destination", "TEXT DEFAULT NULL")
     _safe_add_col("carousels", "destination", "TEXT DEFAULT NULL")
     _safe_add_col("campaigns", "traffic_config", "TEXT DEFAULT ''")
+    # campos de descrição espelhando a estrutura do app Boxys
+    _safe_add_col("campaigns", "description", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "target_audience_description", "TEXT DEFAULT ''")
+    _safe_add_col("campaigns", "usage_instructions", "TEXT DEFAULT ''")
     # carousel_assets table — new model: assets uploaded directly into carousel (not linked to creatives)
     with _conn() as cx:
         cx.executescript("""
@@ -194,6 +198,9 @@ def update_campaign(
     thumb_url: Optional[str] = None,
     featured_image_url: Optional[str] = None,
     traffic_config: Optional[str] = None,
+    description: Optional[str] = None,
+    target_audience_description: Optional[str] = None,
+    usage_instructions: Optional[str] = None,
 ) -> Optional[dict]:
     cols = [
         ("name", name), ("figma_file_key", figma_file_key),
@@ -203,6 +210,9 @@ def update_campaign(
         ("traffic_video_url", traffic_video_url), ("verso_config", verso_config),
         ("thumb_url", thumb_url), ("featured_image_url", featured_image_url),
         ("traffic_config", traffic_config),
+        ("description", description),
+        ("target_audience_description", target_audience_description),
+        ("usage_instructions", usage_instructions),
     ]
     pairs = [f"{col} = ?" for col, val in cols if val is not None]
     vals = [val for _, val in cols if val is not None]

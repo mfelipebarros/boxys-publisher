@@ -173,6 +173,9 @@ class UpdateCampaignRequest(BaseModel):
     thumb_url: Optional[str] = None
     featured_image_url: Optional[str] = None
     traffic_config: Optional[str] = None
+    description: Optional[str] = None
+    target_audience_description: Optional[str] = None
+    usage_instructions: Optional[str] = None
 
 
 class CreateCarouselRequest(BaseModel):
@@ -430,6 +433,110 @@ def boxys_create_campaign(req: CreateBoxyCampaignRequest, request: Request) -> d
         local_campaign = db.create_campaign(req.title, boxys_campaign_id=boxy_id)
 
     return {"status": "ok", "boxy_campaign": created[0] if isinstance(created, list) else created, "local_campaign": local_campaign}
+
+
+def _verso_to_visual_profile(verso_raw: Optional[str]) -> dict:
+    """Converte o verso_config (maker) para o visual_profile esperado pela Boxys.
+
+    As chaves já são as mesmas; só normaliza lead_cost (string → número) e
+    descarta valores vazios.
+    """
+    try:
+        verso = _json.loads(verso_raw) if verso_raw else {}
+    except (ValueError, TypeError):
+        verso = {}
+    if not isinstance(verso, dict):
+        return {}
+
+    vp: dict = {}
+    # passa adiante texto/cores/flags conhecidos quando preenchidos
+    for key in (
+        "campaign_color", "gradient_end_color", "title_color", "one_liner_color",
+        "description_color", "mini_card_bg_color", "mini_card_label_color",
+        "mini_card_value_color", "star_color", "one_liner", "campaign_type",
+        "broker_profile", "clear_description", "card_back_layout",
+    ):
+        val = verso.get(key)
+        if isinstance(val, str) and val.strip():
+            vp[key] = val.strip()
+
+    if verso.get("use_image_backdrop") is True:
+        vp["use_image_backdrop"] = True
+
+    # ratings: mantém só os > 0
+    ratings = verso.get("ratings")
+    if isinstance(ratings, dict):
+        clean = {k: v for k, v in ratings.items() if isinstance(v, (int, float)) and v > 0}
+        if clean:
+            vp["ratings"] = clean
+
+    # lead_cost: maker guarda como string ("R$ 45,00"); Boxys quer número
+    lead = verso.get("lead_cost")
+    if isinstance(lead, (int, float)):
+        vp["lead_cost"] = lead
+    elif isinstance(lead, str) and lead.strip():
+        digits = lead.replace(".", "").replace(",", ".")
+        digits = "".join(c for c in digits if c.isdigit() or c == ".")
+        try:
+            if digits:
+                vp["lead_cost"] = float(digits)
+        except ValueError:
+            pass
+
+    return vp
+
+
+class SyncBoxyCampaignRequest(BaseModel):
+    boxys_campaign_id: Optional[int] = None
+
+
+@app.post("/api/campaigns/{campaign_id}/sync-boxys")
+def sync_boxys_campaign(campaign_id: int, req: SyncBoxyCampaignRequest, request: Request) -> dict:
+    """Envia descrição (3 campos) + visual_profile da campanha local para a Boxys."""
+    token = _get_token(request)
+    hdrs = {**_sb_headers(token), "Prefer": "return=representation"}
+
+    local = db.get_campaign(campaign_id)
+    if not local:
+        return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)
+
+    boxys_id = req.boxys_campaign_id or local.get("boxys_campaign_id")
+    if not boxys_id:
+        return JSONResponse(
+            {"status": "error", "error": "Campanha não está vinculada a uma campanha Boxys"},
+            status_code=400,
+        )
+
+    payload: dict = {
+        "description": local.get("description") or "",
+        "target_audience_description": local.get("target_audience_description") or "",
+        "usage_instructions": local.get("usage_instructions") or "",
+    }
+    if local.get("campaign_title"):
+        payload["title"] = local["campaign_title"]
+    if local.get("thumb_url"):
+        payload["image"] = local["thumb_url"]
+    if local.get("featured_image_url"):
+        payload["featured_image"] = local["featured_image_url"]
+
+    visual_profile = _verso_to_visual_profile(local.get("verso_config"))
+    if visual_profile:
+        payload["visual_profile"] = visual_profile
+
+    try:
+        r = _requests.patch(
+            f"{_SB_URL}/rest/v1/campaign",
+            params={"id": f"eq.{boxys_id}"},
+            json=payload,
+            headers=hdrs,
+            timeout=15,
+        )
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": str(e)}, status_code=503)
+    if r.status_code not in (200, 204):
+        return JSONResponse({"status": "error", "error": f"Supabase: {r.text}"}, status_code=r.status_code)
+
+    return {"status": "ok", "boxys_campaign_id": boxys_id}
 
 
 @app.post("/api/boxys/publish")
@@ -1192,6 +1299,9 @@ def update_campaign(campaign_id: int, req: UpdateCampaignRequest) -> JSONRespons
         thumb_url=req.thumb_url,
         featured_image_url=req.featured_image_url,
         traffic_config=req.traffic_config,
+        description=req.description,
+        target_audience_description=req.target_audience_description,
+        usage_instructions=req.usage_instructions,
     )
     if not campaign:
         return JSONResponse({"status": "error", "error": "Campanha não encontrada"}, status_code=404)

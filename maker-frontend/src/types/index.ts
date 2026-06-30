@@ -8,6 +8,16 @@ export interface IAConfig {
   trafego: { enabled: boolean; context: string; pdf_url?: string }
 }
 
+export type CardBackLayout = 'grid' | 'lines'
+
+// Rótulos fixos dos ratings, espelhando o app Boxys (CampaignFlipCard).
+export const VISUAL_RATING_LABELS = [
+  'Quantidade de Leads',
+  'Facilidade de Venda',
+  'Demanda',
+  'Concorrência',
+] as const
+
 export interface VersoConfig {
   one_liner?: string
   campaign_color?: string
@@ -15,6 +25,18 @@ export interface VersoConfig {
   broker_profile?: string
   lead_cost?: string
   clear_description?: string
+  ratings?: Record<string, number>
+  // customização avançada de cores (espelha visual_profile da Boxys)
+  gradient_end_color?: string
+  title_color?: string
+  one_liner_color?: string
+  description_color?: string
+  mini_card_bg_color?: string
+  mini_card_label_color?: string
+  mini_card_value_color?: string
+  star_color?: string
+  use_image_backdrop?: boolean
+  card_back_layout?: CardBackLayout
 }
 
 export interface LocalCampaign {
@@ -37,6 +59,10 @@ export interface LocalCampaign {
   thumb_url?: string | null
   featured_image_url?: string | null
   traffic_config?: string | null
+  // descrição espelhando o app Boxys (3 campos)
+  description?: string | null
+  target_audience_description?: string | null
+  usage_instructions?: string | null
 }
 
 // ---- Paid Traffic (Meta + Google) ----

@@ -10,8 +10,9 @@ interface Props {
 
 interface FormState {
   campaign_title: string
-  general_description: string
-  basic_copy: string
+  description: string
+  target_audience_description: string
+  usage_instructions: string
   explanation_video_url: string
   traffic_video_url: string
 }
@@ -38,8 +39,9 @@ export function DescricoesTab({ campaignId, campaign }: Props) {
   const qc = useQueryClient()
   const [form, setForm] = useState<FormState>({
     campaign_title: campaign.campaign_title ?? '',
-    general_description: campaign.general_description ?? '',
-    basic_copy: campaign.basic_copy ?? '',
+    description: campaign.description ?? '',
+    target_audience_description: campaign.target_audience_description ?? '',
+    usage_instructions: campaign.usage_instructions ?? '',
     explanation_video_url: campaign.explanation_video_url ?? '',
     traffic_video_url: campaign.traffic_video_url ?? '',
   })
@@ -48,15 +50,17 @@ export function DescricoesTab({ campaignId, campaign }: Props) {
   useEffect(() => {
     setForm({
       campaign_title: campaign.campaign_title ?? '',
-      general_description: campaign.general_description ?? '',
-      basic_copy: campaign.basic_copy ?? '',
+      description: campaign.description ?? '',
+      target_audience_description: campaign.target_audience_description ?? '',
+      usage_instructions: campaign.usage_instructions ?? '',
       explanation_video_url: campaign.explanation_video_url ?? '',
       traffic_video_url: campaign.traffic_video_url ?? '',
     })
   }, [
     campaign.campaign_title,
-    campaign.general_description,
-    campaign.basic_copy,
+    campaign.description,
+    campaign.target_audience_description,
+    campaign.usage_instructions,
     campaign.explanation_video_url,
     campaign.traffic_video_url,
   ])
@@ -102,22 +106,32 @@ export function DescricoesTab({ campaignId, campaign }: Props) {
           />
         </Field>
 
-        <Field label="Descrição geral">
+        <Field label="O que é esta campanha?">
           <textarea
-            value={form.general_description}
-            onChange={e => set('general_description', e.target.value)}
-            placeholder="Descreva o objetivo e o tema principal da campanha."
+            value={form.description}
+            onChange={e => set('description', e.target.value)}
+            placeholder="Descreva o objetivo e o tema principal."
             rows={4}
             className={`${inputCls} resize-y`}
           />
         </Field>
 
-        <Field label="Copy básica">
+        <Field label="Para quem é esta campanha?">
           <textarea
-            value={form.basic_copy}
-            onChange={e => set('basic_copy', e.target.value)}
-            placeholder="Copy de uso pelos corretores — argumentação, benefícios, diferenciais."
-            rows={5}
+            value={form.target_audience_description}
+            onChange={e => set('target_audience_description', e.target.value)}
+            placeholder="Indique o público-alvo ideal e as suas características."
+            rows={4}
+            className={`${inputCls} resize-y`}
+          />
+        </Field>
+
+        <Field label="Como ela deve ser usada?">
+          <textarea
+            value={form.usage_instructions}
+            onChange={e => set('usage_instructions', e.target.value)}
+            placeholder="Instruções para replicação e personalização."
+            rows={4}
             className={`${inputCls} resize-y`}
           />
         </Field>
