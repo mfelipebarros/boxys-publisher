@@ -17,6 +17,8 @@ import { SecaoApp } from '../components/gerador/blocos/SecaoApp'
 import { SecaoTrafego } from '../components/gerador/blocos/SecaoTrafego'
 import { SecaoSintese } from '../components/gerador/blocos/SecaoSintese'
 import { DocumentoGerado } from '../components/gerador/output/DocumentoGerado'
+import { SessaoControls } from '../components/gerador/sessao/SessaoControls'
+import { ChangelogToggle } from '../components/gerador/sessao/ChangelogModal'
 
 // Seções do gerador (html: 01-15). PR5+ preenche as mesas (07-15).
 const SECOES: { num: string; titulo: string; render?: () => ReactNode }[] = [
@@ -59,11 +61,15 @@ function GeradorInner() {
             v{CHANGELOG.length}
           </span>
         </div>
-        <p className="text-sm text-[var(--muted)] max-w-2xl">
+        <p className="text-sm text-[var(--muted)] max-w-2xl mb-4">
           Preencha o briefing do empreendimento ou do tipo de campanha. O método Boxys — mesa de
           especialistas, DNA de marca e estrutura completa de entregáveis — devolve o pacote pronto
           para virar campanha.
         </p>
+        <SessaoControls />
+        <div className="mt-3">
+          <ChangelogToggle />
+        </div>
       </header>
 
       {SECOES.map((s) => (
