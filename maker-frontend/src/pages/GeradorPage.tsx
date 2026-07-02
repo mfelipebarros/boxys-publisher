@@ -1,15 +1,21 @@
 import type { ReactNode } from 'react'
-import { GeradorProvider, useGeradorState, useGeradorDispatch } from '../hooks/gerador/useGerador'
+import { GeradorProvider } from '../hooks/gerador/useGerador'
 import { CHANGELOG } from '../lib/gerador/changelog'
+import { SecaoTipoCampanha } from '../components/gerador/briefing/SecaoTipoCampanha'
+import { SecaoAngulos } from '../components/gerador/briefing/SecaoAngulos'
+import { SecaoMaterial } from '../components/gerador/briefing/SecaoMaterial'
+import { SecaoCorretor } from '../components/gerador/briefing/SecaoCorretor'
+import { SecaoRestricoes } from '../components/gerador/briefing/SecaoRestricoes'
+import { SecaoCalibrador } from '../components/gerador/briefing/SecaoCalibrador'
 
-// Seções do gerador (html: 01-15). PR4+ preenche cada uma com o conteúdo real.
-const SECOES: { num: string; titulo: string }[] = [
-  { num: '01', titulo: 'Tipo de campanha' },
-  { num: '02', titulo: 'Ângulos de campanha' },
-  { num: '03', titulo: 'Material de referência' },
-  { num: '04', titulo: 'Corretor de referência' },
-  { num: '05', titulo: 'Restrições e Informações Extras' },
-  { num: '06', titulo: 'Calibrador de Estilo de Copy' },
+// Seções do gerador (html: 01-15). PR5+ preenche as mesas (07-15).
+const SECOES: { num: string; titulo: string; render?: () => ReactNode }[] = [
+  { num: '01', titulo: 'Tipo de campanha', render: () => <SecaoTipoCampanha /> },
+  { num: '02', titulo: 'Ângulos de campanha', render: () => <SecaoAngulos /> },
+  { num: '03', titulo: 'Material de referência', render: () => <SecaoMaterial /> },
+  { num: '04', titulo: 'Corretor de referência', render: () => <SecaoCorretor /> },
+  { num: '05', titulo: 'Restrições e Informações Extras', render: () => <SecaoRestricoes /> },
+  { num: '06', titulo: 'Calibrador de Estilo de Copy', render: () => <SecaoCalibrador /> },
   { num: '07', titulo: 'Mesa de Perfil de Público' },
   { num: '08', titulo: 'Mesa de Estratégia' },
   { num: '09', titulo: 'Bloco: Ads (Meta + Google)' },
@@ -33,27 +39,6 @@ export function SectionCard({ num, titulo, children }: { num: string; titulo: st
   )
 }
 
-// Prova mínima de que o estado funciona (será substituído pelas seções reais no PR4).
-function BriefingSmoke() {
-  const state = useGeradorState()
-  const dispatch = useGeradorDispatch()
-  const f = state.formulario
-  return (
-    <div className="space-y-3">
-      <input
-        type="text"
-        value={f.nomeEmp}
-        onChange={(e) => dispatch({ type: 'SET_CAMPO', campo: 'nomeEmp', valor: e.target.value })}
-        placeholder="Nome do empreendimento (teste de estado)"
-        className="w-full bg-[var(--surface-raised)] border border-[var(--line)] rounded-lg px-3 py-2 text-sm text-[var(--ink)] focus:border-[var(--accent)] focus:outline-none"
-      />
-      <p className="text-xs font-mono text-[var(--muted)]">
-        título derivado: <span className="text-[var(--ink-soft)]">{f.nomeEmp || 'campanha-boxys'}</span>
-      </p>
-    </div>
-  )
-}
-
 function GeradorInner() {
   return (
     <>
@@ -73,7 +58,7 @@ function GeradorInner() {
 
       {SECOES.map((s) => (
         <SectionCard key={s.num} num={s.num} titulo={s.titulo}>
-          {s.num === '01' ? <BriefingSmoke /> : undefined}
+          {s.render ? s.render() : undefined}
         </SectionCard>
       ))}
     </>
