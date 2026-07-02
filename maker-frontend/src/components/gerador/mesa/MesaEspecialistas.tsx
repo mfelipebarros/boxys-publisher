@@ -19,7 +19,9 @@ export interface MesaEspecialistasProps {
   labelLoading: string
   // Fechuras sobre o estado atual (recriadas a cada render pelo pai).
   buildContexto: () => string
-  buildContextoRegerar: (feedback: string, ultimas: Opcao[]) => string
+  // Regerar com feedback só existe nas mesas 07/08 do protótipo.
+  permitirRegerar?: boolean
+  buildContextoRegerar?: (feedback: string, ultimas: Opcao[]) => string
   // Gate de habilitação (ex: estratégia exige perfil confirmado).
   gate?: { enabled: boolean; msg: string }
 }
@@ -66,7 +68,7 @@ export function MesaEspecialistas(props: MesaEspecialistasProps) {
 
   function onRegerar() {
     const fb = feedback.trim()
-    if (!fb) {
+    if (!fb || !props.buildContextoRegerar) {
       setStatus({ msg: 'Descreva o que você quer ajustar nessas opções.', error: true })
       return
     }
@@ -126,7 +128,7 @@ export function MesaEspecialistas(props: MesaEspecialistasProps) {
         </Button>
       )}
 
-      {opcoes.length > 0 && (
+      {opcoes.length > 0 && props.permitirRegerar && (
         <div className="mt-4 pt-4 border-t border-dashed border-[var(--line)]">
           <Textarea
             value={feedback}

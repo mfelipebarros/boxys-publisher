@@ -26,6 +26,7 @@ export function SecaoEstrategia() {
         maxTokens={3000}
         labelRodar="Rodar mesa de estratégia"
         labelLoading="Rodando a mesa de estratégia…"
+        permitirRegerar
         gate={{
           enabled: perfis.length > 0,
           msg: 'Rode a mesa de perfil de público e confirme ao menos um perfil — a estratégia é construída em cima deles.',

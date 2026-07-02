@@ -1,5 +1,5 @@
 // Ordenação de campos exibidos nos cards de cada mesa (porta os camposOrdem de
-// renderOpcoes). Labels de perfil/estratégia são verbatim do protótipo (1621, 1712).
+// renderOpcoes). Labels verbatim do protótipo (1621, 1712, 1772, 1845, 1924, 2014, 2106).
 import type { MesaId } from '../../hooks/gerador/geradorReducer'
 
 export const CAMPOS_MESA: Record<MesaId, [string, string][]> = {
@@ -18,7 +18,7 @@ export const CAMPOS_MESA: Record<MesaId, [string, string][]> = {
   ],
   tomAds: [
     ['tom', 'Tom: '],
-    ['exemplo_headline', 'Ex. headline: '],
+    ['exemplo_headline', 'Exemplo: '],
     ['trade_off', 'Trade-off: '],
   ],
   castingVideo: [
@@ -27,18 +27,18 @@ export const CAMPOS_MESA: Record<MesaId, [string, string][]> = {
     ['trade_off', 'Trade-off: '],
   ],
   abordagemOrganico: [
-    ['tom_visual', 'Visual: '],
-    ['mix_personalizacao', 'Mix: '],
+    ['tom_visual', 'Tom visual: '],
+    ['mix_personalizacao', 'Mix de personalização: '],
     ['trade_off', 'Trade-off: '],
   ],
   estruturaLP: [
-    ['mecanismo_interativo', 'Mecanismo: '],
-    ['enfase_estrutural', 'Ênfase: '],
+    ['mecanismo_interativo', 'Mecanismo interativo: '],
+    ['enfase_estrutural', 'Ênfase estrutural: '],
     ['trade_off', 'Trade-off: '],
   ],
   argumentoApp: [
     ['argumento_central', 'Argumento: '],
-    ['prova_de_valor', 'Prova: '],
+    ['prova_de_valor', 'Prova de valor: '],
     ['trade_off', 'Trade-off: '],
   ],
   estruturaTrafego: [
@@ -48,20 +48,17 @@ export const CAMPOS_MESA: Record<MesaId, [string, string][]> = {
   ],
 }
 
-// Títulos canônicos dos blocos gerados (usados em APPEND_BLOCO, no gate do Tráfego
-// e na serialização de sessão). Precisam bater com os títulos reais do appendToOutput.
+// Títulos canônicos dos blocos gerados — VERBATIM do appendToOutput (html 1805-2165).
+// Usados em APPEND_BLOCO, no gate do Tráfego e na serialização de sessão.
 export const BLOCO_TITULOS = {
-  adsMeta: 'Ads — Meta',
-  adsGoogle: 'Ads — Google',
-  videosTemplates: 'Vídeos — Templates de Anúncio',
-  videosCine: 'Vídeos — Cinematográficos',
-  organicoCarrosseis: 'Redes Sociais — Carrosséis',
-  organicoEstaticos: 'Redes Sociais — Estáticos e Status',
-  lpParte1: 'Landing Page — Parte 1',
-  lpParte2: 'Landing Page — Parte 2',
-  appConteudo: 'App — Conteúdo',
-  appTeaser: 'App — Teaser',
-  trafegoPrincipal: 'Tráfego Pago — Meta e Google',
-  trafegoSecundario: 'Tráfego Pago — TikTok, LinkedIn, Pinterest e X',
-  sintese: 'Síntese das Estratégias',
+  adsMeta: 'Bloco: Ads — Meta (formato de importação)',
+  adsGoogle: 'Bloco: Ads — Google (formato de importação)',
+  videosTemplates: 'Bloco: Vídeos — Templates de anúncio',
+  videosCine: 'Bloco: Vídeos — Captação cinematográfica',
+  organicoCarrosseis: 'Bloco: Redes Sociais — Carrosséis',
+  organicoEstaticos: 'Bloco: Redes Sociais — Estáticos e Status',
+  lpParte1: 'Bloco: Landing Page — Parte 1',
+  lpParte2: 'Bloco: Landing Page — Parte 2',
+  appConteudo: 'Bloco: App — Thumb, Descrição e Vídeos',
+  appTeaser: 'Bloco: App — Teaser Cinematográfico',
 } as const
