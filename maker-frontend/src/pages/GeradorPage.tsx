@@ -17,6 +17,7 @@ import { SecaoApp } from '../components/gerador/blocos/SecaoApp'
 import { SecaoTrafego } from '../components/gerador/blocos/SecaoTrafego'
 import { SecaoSintese } from '../components/gerador/blocos/SecaoSintese'
 import { DocumentoGerado } from '../components/gerador/output/DocumentoGerado'
+import { FinalizarCampanha } from '../components/gerador/ponte/FinalizarCampanha'
 import { SessaoControls } from '../components/gerador/sessao/SessaoControls'
 import { ChangelogToggle } from '../components/gerador/sessao/ChangelogModal'
 
@@ -81,6 +82,11 @@ function GeradorInner() {
       <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[var(--radius)] p-6 mb-4">
         <h2 className="text-base font-semibold text-[var(--ink)] mb-3">Documento da campanha</h2>
         <DocumentoGerado />
+      </section>
+
+      <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[var(--radius)] p-6 mb-4">
+        <h2 className="text-base font-semibold text-[var(--ink)] mb-3">Finalizar: virar campanha no Boxys</h2>
+        <FinalizarCampanha />
       </section>
     </>
   )
