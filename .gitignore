@@ -3,9 +3,10 @@
 *.env
 !.env.example
 
-# Dados gerados
-output/
-data/
+# Dados gerados (pastas do backend, na raiz do repo — ancoradas para não pegar
+# diretórios "output"/"data" aninhados no frontend, ex: src/components/gerador/output/)
+/output/
+/data/
 
 # Python
 __pycache__/
