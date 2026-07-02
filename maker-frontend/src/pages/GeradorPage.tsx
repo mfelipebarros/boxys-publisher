@@ -7,6 +7,8 @@ import { SecaoMaterial } from '../components/gerador/briefing/SecaoMaterial'
 import { SecaoCorretor } from '../components/gerador/briefing/SecaoCorretor'
 import { SecaoRestricoes } from '../components/gerador/briefing/SecaoRestricoes'
 import { SecaoCalibrador } from '../components/gerador/briefing/SecaoCalibrador'
+import { SecaoPerfilPublico } from '../components/gerador/mesa/SecaoPerfilPublico'
+import { SecaoEstrategia } from '../components/gerador/mesa/SecaoEstrategia'
 
 // Seções do gerador (html: 01-15). PR5+ preenche as mesas (07-15).
 const SECOES: { num: string; titulo: string; render?: () => ReactNode }[] = [
@@ -16,8 +18,8 @@ const SECOES: { num: string; titulo: string; render?: () => ReactNode }[] = [
   { num: '04', titulo: 'Corretor de referência', render: () => <SecaoCorretor /> },
   { num: '05', titulo: 'Restrições e Informações Extras', render: () => <SecaoRestricoes /> },
   { num: '06', titulo: 'Calibrador de Estilo de Copy', render: () => <SecaoCalibrador /> },
-  { num: '07', titulo: 'Mesa de Perfil de Público' },
-  { num: '08', titulo: 'Mesa de Estratégia' },
+  { num: '07', titulo: 'Mesa de Perfil de Público', render: () => <SecaoPerfilPublico /> },
+  { num: '08', titulo: 'Mesa de Estratégia', render: () => <SecaoEstrategia /> },
   { num: '09', titulo: 'Bloco: Ads (Meta + Google)' },
   { num: '10', titulo: 'Bloco: Vídeos' },
   { num: '11', titulo: 'Bloco: Redes Sociais' },

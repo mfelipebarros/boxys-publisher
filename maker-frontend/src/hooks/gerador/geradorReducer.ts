@@ -114,6 +114,13 @@ const MESA_DECISAO: Record<MesaId, keyof Decisoes> = {
   estruturaTrafego: 'estruturaTrafegoEscolhida',
 }
 
+// Lê a decisão de uma mesa sempre como array (single vira [] ou [opcao]).
+export function getSelecaoMesa(decisoes: Decisoes, mesa: MesaId): Opcao[] {
+  const v = decisoes[MESA_DECISAO[mesa]]
+  if (Array.isArray(v)) return v
+  return v ? [v] : []
+}
+
 // Porta rebuildOutput (html 1523-1531): recompõe outputCompleto e tituloCampanha.
 function rebuild(state: GeradorState): GeradorState {
   const outputCompleto = state.blocosRegistro
