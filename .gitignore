@@ -34,3 +34,6 @@ maker-frontend-dist/
 
 # Arquivos temporários
 "documento teste.docx"
+
+# Protótipo de referência do Gerador de Campanhas (fonte original, não faz parte do app)
+gerador_campanhas.html
