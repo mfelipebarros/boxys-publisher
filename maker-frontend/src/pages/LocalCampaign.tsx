@@ -121,7 +121,7 @@ export function LocalCampaignPage() {
         <BriefingTab campaignId={id!} campaign={campaign} />
       )}
       {tab === 'copies' && (
-        <CopiesTab campaignId={id!} copies={copies} />
+        <CopiesTab campaignId={id!} copies={copies} campaign={campaign} />
       )}
       {tab === 'landing-page' && (
         <LandingPageTab campaignId={id!} creatives={landingPages} copies={copies} />

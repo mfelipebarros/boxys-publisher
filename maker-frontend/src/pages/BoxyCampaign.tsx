@@ -199,7 +199,7 @@ export function BoxyCampaignPage() {
       )}
       {tab === 'copies' && (
         localReady
-          ? <CopiesTab campaignId={localCampaignId} copies={copies} />
+          ? <CopiesTab campaignId={localCampaignId} copies={copies} campaign={localCampaign} />
           : <Loading />
       )}
       {tab === 'landing-page' && (

@@ -4,11 +4,13 @@ import { api } from '../../lib/api'
 import { Button } from '../ui/Button'
 import { CopyForm } from './CopyForm'
 import { ImportCopiesModal } from './ImportCopiesModal'
-import type { LocalCopy } from '../../types'
+import { PromptIAModal } from './PromptIAModal'
+import type { LocalCampaign, LocalCopy } from '../../types'
 
 interface Props {
   campaignId: string
   copies: LocalCopy[]
+  campaign?: LocalCampaign
 }
 
 type CopyType = LocalCopy['type']
@@ -231,16 +233,20 @@ function groupOf(type: CopyType): PromptGroup {
   return type === 'landing_page' ? 'lp' : 'ad_post'
 }
 
-export function CopiesTab({ campaignId, copies }: Props) {
+interface PromptModalState {
+  groupLabel: string
+  promptEndpoint: string
+  blocks: string
+}
+
+export function CopiesTab({ campaignId, copies, campaign }: Props) {
   const qc = useQueryClient()
   const [selected, setSelected] = useState<number[]>([])
   const [showCreate, setShowCreate] = useState(false)
   const [editCopy, setEditCopy] = useState<LocalCopy | null>(null)
   const [detailCopy, setDetailCopy] = useState<LocalCopy | null>(null)
   const [showImport, setShowImport] = useState(false)
-  const [toastMsg, setToastMsg] = useState('')
-  const [promptFallback, setPromptFallback] = useState<{ title: string; text: string } | null>(null)
-  const [copying, setCopying] = useState<PromptGroup | null>(null)
+  const [promptModal, setPromptModal] = useState<PromptModalState | null>(null)
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => api.delete(`/api/copies/${id}`),
@@ -254,53 +260,21 @@ export function CopiesTab({ campaignId, copies }: Props) {
     setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
   }
 
-  function toast(msg: string) {
-    setToastMsg(msg)
-    setTimeout(() => setToastMsg(''), 3000)
-  }
-
-  async function copiarPromptGrupo(group: PromptGroup) {
+  // Abre o modal de prompt com IA (contextualizado à campanha) para um grupo inteiro.
+  function abrirPromptGrupo(group: PromptGroup) {
     const groupCopies = copies.filter(c => groupOf(c.type) === group)
     if (!groupCopies.length) return
-    setCopying(group)
-    try {
-      const endpoint = GROUP_PROMPT_ENDPOINT[group]
-      const { prompt } = await api.get<{ status: string; prompt: string }>(`/api/prompts/${endpoint}`)
-      const blocks = groupCopies.map(formatCopyBlock).join('\n\n---\n\n')
-      const final = prompt.replace('[COLAR AQUI O OUTPUT DO APP BOXYS]', blocks)
-      try {
-        await navigator.clipboard.writeText(final)
-        toast(`Prompt ${GROUP_LABEL[group]} copiado!`)
-      } catch {
-        setPromptFallback({ title: `Prompt — ${GROUP_LABEL[group]}`, text: final })
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setCopying(null)
-    }
+    const blocks = groupCopies.map(formatCopyBlock).join('\n\n---\n\n')
+    setPromptModal({ groupLabel: GROUP_LABEL[group], promptEndpoint: GROUP_PROMPT_ENDPOINT[group], blocks })
   }
 
-  async function gerarPromptSelecionados() {
+  // Idem, mas só com as copies selecionadas.
+  function abrirPromptSelecionados() {
     const selectedCopies = copies.filter(c => selected.includes(c.id))
     if (!selectedCopies.length) return
     const group = groupOf(selectedCopies[0].type)
-    setCopying(group)
-    try {
-      const { prompt } = await api.get<{ status: string; prompt: string }>(`/api/prompts/${GROUP_PROMPT_ENDPOINT[group]}`)
-      const blocks = selectedCopies.map(formatCopyBlock).join('\n\n---\n\n')
-      const final = prompt.replace('[COLAR AQUI O OUTPUT DO APP BOXYS]', blocks)
-      try {
-        await navigator.clipboard.writeText(final)
-        toast('Prompt copiado!')
-      } catch {
-        setPromptFallback({ title: `Prompt — ${GROUP_LABEL[group]}`, text: final })
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setCopying(null)
-    }
+    const blocks = selectedCopies.map(formatCopyBlock).join('\n\n---\n\n')
+    setPromptModal({ groupLabel: GROUP_LABEL[group], promptEndpoint: GROUP_PROMPT_ENDPOINT[group], blocks })
   }
 
   const adPostCount = copies.filter(c => groupOf(c.type) === 'ad_post').length
@@ -317,20 +291,18 @@ export function CopiesTab({ campaignId, copies }: Props) {
         <div className="ml-auto flex gap-2">
           {adPostCount > 0 && (
             <button
-              onClick={() => copiarPromptGrupo('ad_post')}
-              disabled={copying === 'ad_post'}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--line)] text-[var(--ink-soft)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition-all"
+              onClick={() => abrirPromptGrupo('ad_post')}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--line)] text-[var(--ink-soft)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-all"
             >
-              {copying === 'ad_post' ? 'Copiando…' : `Copiar prompt Ad/Post (${adPostCount})`} →
+              {`Prompt Ad/Post com IA (${adPostCount})`} →
             </button>
           )}
           {lpCount > 0 && (
             <button
-              onClick={() => copiarPromptGrupo('lp')}
-              disabled={copying === 'lp'}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--line)] text-[var(--ink-soft)] hover:border-purple-400 hover:text-purple-400 disabled:opacity-50 transition-all"
+              onClick={() => abrirPromptGrupo('lp')}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--line)] text-[var(--ink-soft)] hover:border-purple-400 hover:text-purple-400 transition-all"
             >
-              {copying === 'lp' ? 'Copiando…' : `Copiar prompt LP (${lpCount})`} →
+              {`Prompt LP com IA (${lpCount})`} →
             </button>
           )}
         </div>
@@ -373,36 +345,19 @@ export function CopiesTab({ campaignId, copies }: Props) {
             Selecionar todos do grupo
           </button>
           <button onClick={() => setSelected([])} className="text-xs text-[var(--muted)] hover:text-[var(--ink)]">Limpar</button>
-          <Button size="sm" onClick={gerarPromptSelecionados} disabled={copying !== null}>
-            {copying ? 'Copiando…' : 'Gerar prompt →'}
-          </Button>
+          <Button size="sm" onClick={abrirPromptSelecionados}>Gerar prompt com IA →</Button>
         </div>
       )}
 
-      {/* Toast */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 bg-[var(--surface-raised)] border border-[var(--line)] rounded-lg px-4 py-2.5 text-sm text-[var(--ink-soft)] shadow-xl">
-          {toastMsg}
-        </div>
-      )}
-
-      {/* Prompt fallback modal */}
-      {promptFallback && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,.7)' }}>
-          <div className="w-full max-w-2xl bg-[var(--surface)] border border-[var(--line)] rounded-[var(--radius)] p-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className="font-semibold text-sm text-[var(--ink)]">{promptFallback.title}</p>
-              <button onClick={() => setPromptFallback(null)} className="text-[var(--muted)] hover:text-[var(--ink)]">×</button>
-            </div>
-            <textarea
-              readOnly
-              value={promptFallback.text}
-              rows={16}
-              className="w-full bg-[var(--surface-raised)] border border-[var(--line)] rounded-lg p-3 text-xs font-mono text-[var(--ink-soft)] resize-none outline-none"
-              onClick={e => (e.target as HTMLTextAreaElement).select()}
-            />
-          </div>
-        </div>
+      {/* Prompt com IA (contextualizado à campanha) */}
+      {promptModal && (
+        <PromptIAModal
+          campaign={campaign}
+          groupLabel={promptModal.groupLabel}
+          promptEndpoint={promptModal.promptEndpoint}
+          blocks={promptModal.blocks}
+          onClose={() => setPromptModal(null)}
+        />
       )}
 
       {showCreate && <CopyForm campaignId={campaignId} onClose={() => setShowCreate(false)} />}
