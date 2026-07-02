@@ -20,6 +20,7 @@ import { DocumentoGerado } from '../components/gerador/output/DocumentoGerado'
 import { FinalizarCampanha } from '../components/gerador/ponte/FinalizarCampanha'
 import { SessaoControls } from '../components/gerador/sessao/SessaoControls'
 import { ChangelogToggle } from '../components/gerador/sessao/ChangelogModal'
+import { ModeloSelector } from '../components/gerador/ModeloSelector'
 
 // Seções do gerador (html: 01-15). PR5+ preenche as mesas (07-15).
 const SECOES: { num: string; titulo: string; render?: () => ReactNode }[] = [
@@ -56,11 +57,14 @@ function GeradorInner() {
   return (
     <>
       <header className="mb-8 border-b border-[var(--line)] pb-5">
-        <div className="flex items-center gap-2 mb-1">
-          <h1 className="text-2xl font-bold text-[var(--ink)]">Gerador de Campanhas</h1>
-          <span className="text-[10px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] px-2 py-0.5 rounded-full">
-            v{CHANGELOG.length}
-          </span>
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-[var(--ink)]">Gerador de Campanhas</h1>
+            <span className="text-[10px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] px-2 py-0.5 rounded-full">
+              v{CHANGELOG.length}
+            </span>
+          </div>
+          <ModeloSelector />
         </div>
         <p className="text-sm text-[var(--muted)] max-w-2xl mb-4">
           Preencha o briefing do empreendimento ou do tipo de campanha. O método Boxys — mesa de

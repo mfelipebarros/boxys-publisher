@@ -4,7 +4,7 @@
 import { api } from '../api'
 import type { ArquivoRef } from '../../types/gerador'
 import { parseJsonSeguro } from './parseJson'
-import { MODEL_GERADOR } from './config'
+import { getModeloGerador } from './config'
 
 interface ContentBlock {
   type: 'text' | 'image' | 'document'
@@ -48,7 +48,7 @@ export async function chamarGerador(
     system: systemPrompt,
     content: montarContentBlocks(userText, arquivos),
     max_tokens: maxTokens,
-    model: MODEL_GERADOR,
+    model: getModeloGerador(),
   })
   const text = data.text || ''
   if (!text) throw new Error('Resposta vazia da API (stop_reason: ' + (data.stop_reason || 'desconhecido') + ').')
