@@ -131,6 +131,23 @@ function rebuild(state: GeradorState): GeradorState {
   return { ...state, outputCompleto, tituloCampanha }
 }
 
+// Restaura um GeradorState a partir de uma sessão (.json ou autosave). Puro —
+// reusado no case RESTAURAR_SESSAO e na inicialização do provider.
+export function restaurarDeSessao(s: SessaoGerador): GeradorState {
+  const restored: GeradorState = {
+    ...INITIAL_STATE,
+    formulario: { ...FORMULARIO_INICIAL, ...s.formulario },
+    arquivos: s.arquivos ?? [],
+    decisoes: { ...DECISOES_INICIAL, ...s.decisoes },
+    textosGerados: { ...INITIAL_STATE.textosGerados, ...s.textosGerados },
+    blocosRegistro: s.blocosRegistro ?? [],
+    tituloCampanha: s.tituloCampanha ?? '',
+    outputCompleto: s.outputCompleto ?? '',
+  }
+  // Recompõe outputCompleto se a sessão trouxe blocos mas não o texto (fallback).
+  return restored.blocosRegistro.length && !restored.outputCompleto ? rebuild(restored) : restored
+}
+
 export function geradorReducer(state: GeradorState, action: GeradorAction): GeradorState {
   switch (action.type) {
     case 'SET_CAMPO':
@@ -177,23 +194,8 @@ export function geradorReducer(state: GeradorState, action: GeradorAction): Gera
         textosGerados: { ...state.textosGerados, [action.chave]: action.valor },
       }
 
-    case 'RESTAURAR_SESSAO': {
-      const s = action.sessao
-      const restored: GeradorState = {
-        ...INITIAL_STATE,
-        formulario: { ...FORMULARIO_INICIAL, ...s.formulario },
-        arquivos: s.arquivos ?? [],
-        decisoes: { ...DECISOES_INICIAL, ...s.decisoes },
-        textosGerados: { ...INITIAL_STATE.textosGerados, ...s.textosGerados },
-        blocosRegistro: s.blocosRegistro ?? [],
-        tituloCampanha: s.tituloCampanha ?? '',
-        outputCompleto: s.outputCompleto ?? '',
-      }
-      // Recompõe outputCompleto se a sessão trouxe blocos mas não o texto (fallback).
-      return restored.blocosRegistro.length && !restored.outputCompleto
-        ? rebuild(restored)
-        : restored
-    }
+    case 'RESTAURAR_SESSAO':
+      return restaurarDeSessao(action.sessao)
 
     case 'RESET':
       return INITIAL_STATE

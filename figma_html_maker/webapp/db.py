@@ -74,6 +74,15 @@ def _migrate() -> None:
                 creative_id INTEGER REFERENCES creatives(id) ON DELETE CASCADE,
                 order_index INTEGER DEFAULT 0
             );
+
+            -- Rascunhos do Gerador de Campanhas (estado da sessão em JSON)
+            CREATE TABLE IF NOT EXISTS gerador_drafts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT 'Rascunho',
+                data TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
         """)
     # Safe migration: add copy_id to existing creatives tables
     with _conn() as cx:
@@ -586,3 +595,44 @@ def set_creative_destination(creative_id: int, destination: Optional[str]) -> Op
     with _conn() as cx:
         cx.execute("UPDATE creatives SET destination = ? WHERE id = ?", (destination, creative_id))
         return _row(cx.execute("SELECT * FROM creatives WHERE id = ?", (creative_id,)).fetchone())
+
+
+# ---- gerador drafts (rascunhos do Gerador de Campanhas) ----
+
+def create_gerador_draft(name: str, data: str) -> dict:
+    with _conn() as cx:
+        cur = cx.execute(
+            "INSERT INTO gerador_drafts (name, data) VALUES (?, ?)",
+            (name or "Rascunho", data or "{}"),
+        )
+        return _row(cx.execute("SELECT * FROM gerador_drafts WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def list_gerador_drafts() -> List[dict]:
+    """Lista rascunhos sem o campo `data` (mais leve para a listagem)."""
+    with _conn() as cx:
+        rows = cx.execute(
+            "SELECT id, name, created_at, updated_at FROM gerador_drafts ORDER BY updated_at DESC"
+        ).fetchall()
+        return _rows(rows)
+
+
+def get_gerador_draft(draft_id: int) -> Optional[dict]:
+    with _conn() as cx:
+        return _row(cx.execute("SELECT * FROM gerador_drafts WHERE id = ?", (draft_id,)).fetchone())
+
+
+def update_gerador_draft(draft_id: int, name: Optional[str] = None, data: Optional[str] = None) -> Optional[dict]:
+    with _conn() as cx:
+        if name is not None:
+            cx.execute("UPDATE gerador_drafts SET name = ? WHERE id = ?", (name, draft_id))
+        if data is not None:
+            cx.execute("UPDATE gerador_drafts SET data = ? WHERE id = ?", (data, draft_id))
+        cx.execute("UPDATE gerador_drafts SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (draft_id,))
+        return _row(cx.execute("SELECT * FROM gerador_drafts WHERE id = ?", (draft_id,)).fetchone())
+
+
+def delete_gerador_draft(draft_id: int) -> bool:
+    with _conn() as cx:
+        cur = cx.execute("DELETE FROM gerador_drafts WHERE id = ?", (draft_id,))
+        return cur.rowcount > 0

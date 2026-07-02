@@ -19,6 +19,7 @@ import { SecaoSintese } from '../components/gerador/blocos/SecaoSintese'
 import { DocumentoGerado } from '../components/gerador/output/DocumentoGerado'
 import { FinalizarCampanha } from '../components/gerador/ponte/FinalizarCampanha'
 import { SessaoControls } from '../components/gerador/sessao/SessaoControls'
+import { DraftsPanel } from '../components/gerador/sessao/DraftsPanel'
 import { ChangelogToggle } from '../components/gerador/sessao/ChangelogModal'
 import { ModeloSelector } from '../components/gerador/ModeloSelector'
 
@@ -71,6 +72,7 @@ function GeradorInner() {
           especialistas, DNA de marca e estrutura completa de entregáveis — devolve o pacote pronto
           para virar campanha.
         </p>
+        <div className="mb-2"><DraftsPanel /></div>
         <SessaoControls />
         <div className="mt-3">
           <ChangelogToggle />

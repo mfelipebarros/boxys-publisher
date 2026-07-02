@@ -1618,6 +1618,53 @@ def ai_generate_endpoint(req: AiGenerateRequest) -> JSONResponse:
     return JSONResponse({"status": "ok", **result})
 
 
+# ---- Gerador de Campanhas: rascunhos (drafts) ----
+
+class GeradorDraftCreate(BaseModel):
+    name: str = "Rascunho"
+    data: str = "{}"  # JSON string do estado da sessão
+
+
+class GeradorDraftUpdate(BaseModel):
+    name: Optional[str] = None
+    data: Optional[str] = None
+
+
+@app.get("/api/gerador/drafts")
+def list_gerador_drafts() -> JSONResponse:
+    return JSONResponse({"status": "ok", "drafts": db.list_gerador_drafts()})
+
+
+@app.post("/api/gerador/drafts")
+def create_gerador_draft(req: GeradorDraftCreate) -> JSONResponse:
+    draft = db.create_gerador_draft(req.name, req.data)
+    return JSONResponse({"status": "ok", "draft": draft})
+
+
+@app.get("/api/gerador/drafts/{draft_id}")
+def get_gerador_draft(draft_id: int) -> JSONResponse:
+    draft = db.get_gerador_draft(draft_id)
+    if not draft:
+        return JSONResponse({"status": "error", "error": "Rascunho não encontrado"}, status_code=404)
+    return JSONResponse({"status": "ok", "draft": draft})
+
+
+@app.put("/api/gerador/drafts/{draft_id}")
+def update_gerador_draft(draft_id: int, req: GeradorDraftUpdate) -> JSONResponse:
+    draft = db.update_gerador_draft(draft_id, name=req.name, data=req.data)
+    if not draft:
+        return JSONResponse({"status": "error", "error": "Rascunho não encontrado"}, status_code=404)
+    return JSONResponse({"status": "ok", "draft": draft})
+
+
+@app.delete("/api/gerador/drafts/{draft_id}")
+def delete_gerador_draft(draft_id: int) -> JSONResponse:
+    ok = db.delete_gerador_draft(draft_id)
+    if not ok:
+        return JSONResponse({"status": "error", "error": "Rascunho não encontrado"}, status_code=404)
+    return JSONResponse({"status": "ok"})
+
+
 class BulkCopyItem(BaseModel):
     name: str
     type: str = "criativo"
