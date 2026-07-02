@@ -4,6 +4,8 @@ import { Button } from '../../ui/Button'
 import { DotLoader, Field, Hint, Row, StatusMsg, ToggleGroup } from '../ui'
 import { useGeradorDispatch, useGeradorState } from '../../../hooks/gerador/useGerador'
 import { chamarGerador } from '../../../lib/gerador/ai'
+import { addAiTime, formatDuration } from '../../../lib/gerador/timing'
+import { useElapsedTimer } from '../../../hooks/gerador/useAiTiming'
 import { PROMPT_CALIBRADOR_ESTILO } from '../../../lib/gerador/prompts'
 import type { FormularioState } from '../../../types/gerador'
 
@@ -23,6 +25,7 @@ export function SecaoCalibrador() {
 
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ msg: string; error?: boolean } | null>(null)
+  const elapsed = useElapsedTimer(loading)
 
   async function calibrarPorExemplo() {
     const exemplos = f.exemplosCopy.trim()
@@ -30,6 +33,7 @@ export function SecaoCalibrador() {
       setStatus({ msg: 'Cole pelo menos um exemplo de copy antes de calibrar.', error: true })
       return
     }
+    const inicio = Date.now()
     setLoading(true)
     setStatus(null)
     try {
@@ -38,9 +42,12 @@ export function SecaoCalibrador() {
         `Exemplos de copy fornecidos como referência de estilo ideal:\n\n${exemplos}`,
         2500,
       )
+      const duracao = Date.now() - inicio
+      addAiTime(duracao)
       set('perfilEstiloTexto', resp.text)
-      setStatus({ msg: 'Perfil de estilo extraído — revise/edite abaixo se quiser antes de seguir com a campanha.' })
+      setStatus({ msg: `Perfil de estilo extraído — revise/edite abaixo se quiser antes de seguir com a campanha. (gerado em ${formatDuration(duracao)})` })
     } catch (err) {
+      addAiTime(Date.now() - inicio)
       setStatus({ msg: 'Erro ao calibrar estilo: ' + (err instanceof Error ? err.message : String(err)), error: true })
     } finally {
       setLoading(false)
@@ -87,7 +94,7 @@ export function SecaoCalibrador() {
             />
           </Field>
           <Button variant="secondary" onClick={calibrarPorExemplo} disabled={loading}>
-            {loading ? 'Analisando…' : 'Calibrar estilo a partir dos exemplos'}
+            {loading ? `Analisando… ${formatDuration(elapsed)}` : 'Calibrar estilo a partir dos exemplos'}
           </Button>
         </div>
       ) : (

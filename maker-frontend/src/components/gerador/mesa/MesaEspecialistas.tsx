@@ -7,6 +7,8 @@ import { useGeradorDispatch, useGeradorState } from '../../../hooks/gerador/useG
 import { getSelecaoMesa } from '../../../hooks/gerador/geradorReducer'
 import type { MesaId } from '../../../hooks/gerador/geradorReducer'
 import { chamarGeradorJSON } from '../../../lib/gerador/ai'
+import { addAiTime, formatDuration } from '../../../lib/gerador/timing'
+import { useElapsedTimer } from '../../../hooks/gerador/useAiTiming'
 import type { Opcao } from '../../../types/gerador'
 
 export interface MesaEspecialistasProps {
@@ -42,20 +44,26 @@ export function MesaEspecialistas(props: MesaEspecialistasProps) {
   const [status, setStatus] = useState<{ msg: string; error?: boolean } | null>(null)
   const [feedback, setFeedback] = useState('')
   const [sel, setSel] = useState<string[]>(() => confirmadas.map((o) => o.titulo))
+  const elapsed = useElapsedTimer(loading)
 
   async function rodar(contexto: string, loadingMsg: string) {
+    const inicio = Date.now()
     setLoading(true)
     setStatus({ msg: loadingMsg })
     try {
       const json = await chamarGeradorJSON<OpcoesResposta>(promptOpcoes, contexto, maxTokens)
+      const duracao = Date.now() - inicio
+      addAiTime(duracao)
       dispatch({ type: 'SET_OPCOES_MESA', mesa, opcoes: json.opcoes ?? [] })
       setSel([])
       setStatus({
-        msg: multi
-          ? 'Selecione uma ou mais opções abaixo (clique para marcar/desmarcar) e depois confirme.'
-          : 'Escolha uma opção abaixo.',
+        msg:
+          (multi
+            ? 'Selecione uma ou mais opções abaixo (clique para marcar/desmarcar) e depois confirme.'
+            : 'Escolha uma opção abaixo.') + ` (gerado em ${formatDuration(duracao)})`,
       })
     } catch (err) {
+      addAiTime(Date.now() - inicio)
       setStatus({ msg: 'Erro na mesa: ' + (err instanceof Error ? err.message : String(err)), error: true })
     } finally {
       setLoading(false)
@@ -102,7 +110,7 @@ export function MesaEspecialistas(props: MesaEspecialistasProps) {
   return (
     <div>
       <Button onClick={onRodar} disabled={loading}>
-        {loading ? 'Rodando…' : opcoes.length ? 'Rodar novamente' : labelRodar}
+        {loading ? `Rodando… ${formatDuration(elapsed)}` : opcoes.length ? 'Rodar novamente' : labelRodar}
       </Button>
 
       {loading && <div className="mt-3"><DotLoader>{status?.msg}</DotLoader></div>}

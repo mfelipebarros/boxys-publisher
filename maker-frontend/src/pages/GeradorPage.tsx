@@ -22,6 +22,8 @@ import { SessaoControls } from '../components/gerador/sessao/SessaoControls'
 import { DraftsPanel } from '../components/gerador/sessao/DraftsPanel'
 import { ChangelogToggle } from '../components/gerador/sessao/ChangelogModal'
 import { ModeloSelector } from '../components/gerador/ModeloSelector'
+import { useTotalAiTime } from '../hooks/gerador/useAiTiming'
+import { formatDuration } from '../lib/gerador/timing'
 
 // Seções do gerador (html: 01-15). PR5+ preenche as mesas (07-15).
 const SECOES: { num: string; titulo: string; render?: () => ReactNode }[] = [
@@ -54,6 +56,19 @@ export function SectionCard({ num, titulo, children }: { num: string; titulo: st
   )
 }
 
+function TotalAiTimeBadge() {
+  const totalMs = useTotalAiTime()
+  if (totalMs <= 0) return null
+  return (
+    <span
+      title="Tempo total gasto em chamadas de IA nesta campanha"
+      className="text-[10px] font-mono font-bold text-[var(--muted)] bg-[var(--surface-raised)] border border-[var(--line)] px-2 py-0.5 rounded-full whitespace-nowrap"
+    >
+      ⏱ {formatDuration(totalMs)} de IA
+    </span>
+  )
+}
+
 function GeradorInner() {
   return (
     <>
@@ -64,6 +79,7 @@ function GeradorInner() {
             <span className="text-[10px] font-bold text-[var(--accent)] bg-[var(--accent-bg)] px-2 py-0.5 rounded-full">
               v{CHANGELOG.length}
             </span>
+            <TotalAiTimeBadge />
           </div>
           <ModeloSelector />
         </div>
@@ -86,7 +102,10 @@ function GeradorInner() {
       ))}
 
       <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[var(--radius)] p-6 mb-4">
-        <h2 className="text-base font-semibold text-[var(--ink)] mb-3">Documento da campanha</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-[var(--ink)]">Documento da campanha</h2>
+          <TotalAiTimeBadge />
+        </div>
         <DocumentoGerado />
       </section>
 

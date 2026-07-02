@@ -4,6 +4,7 @@ import { Button } from '../../ui/Button'
 import { Select } from '../../ui/Input'
 import { limparAutosave, useGeradorDispatch, useGeradorState } from '../../../hooks/gerador/useGerador'
 import { desserializarSessao, serializarSessao } from '../../../hooks/gerador/sessao'
+import { resetAiTime } from '../../../lib/gerador/timing'
 import {
   createDraft,
   deleteDraft,
@@ -85,6 +86,7 @@ export function DraftsPanel() {
     if (!confirm('Começar uma nova campanha? O rascunho atual será limpo (salve como novo antes se quiser guardá-lo).')) return
     ativar(null) // limpa o rascunho ativo ANTES do reset, para o autosave não sobrescrever
     limparAutosave()
+    resetAiTime()
     dispatch({ type: 'RESET' })
     setStatus('nova campanha')
   }
