@@ -15,6 +15,14 @@ const DispatchContext = createContext<Dispatch<GeradorAction> | null>(null)
 // critério da sessão .json — para não estourar a cota do localStorage.
 const AUTOSAVE_KEY = 'gerador_autosave'
 
+function salvarAutosave(state: GeradorState): void {
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializarSessao(state, new Date().toISOString())))
+  } catch {
+    /* cota cheia / indisponível — ignora */
+  }
+}
+
 function estadoInicial(): GeradorState {
   try {
     const raw = localStorage.getItem(AUTOSAVE_KEY)
@@ -28,6 +36,9 @@ function estadoInicial(): GeradorState {
 export function GeradorProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(geradorReducer, undefined, estadoInicial)
   const primeiroRender = useRef(true)
+  // Mantém o estado mais recente acessível no cleanup de desmontagem.
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   // Autosave em localStorage (debounce). Pula o primeiro render (acabou de restaurar).
   useEffect(() => {
@@ -35,15 +46,21 @@ export function GeradorProvider({ children }: { children: ReactNode }) {
       primeiroRender.current = false
       return
     }
-    const t = setTimeout(() => {
-      try {
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializarSessao(state, new Date().toISOString())))
-      } catch {
-        /* cota cheia / indisponível — ignora */
-      }
-    }, 500)
+    const t = setTimeout(() => salvarAutosave(state), 500)
     return () => clearTimeout(t)
   }, [state])
+
+  // Flush ao desmontar (trocar de rota) e ao sair da página (reload/fechar aba):
+  // grava o estado atual mesmo que o debounce ainda não tenha disparado — sem isso,
+  // sair logo após digitar perdia o progresso.
+  useEffect(() => {
+    const flush = () => salvarAutosave(stateRef.current)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      flush()
+    }
+  }, [])
 
   return (
     <StateContext.Provider value={state}>
