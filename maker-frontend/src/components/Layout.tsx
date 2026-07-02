@@ -73,6 +73,7 @@ export function Layout({ children }: { children: ReactNode }) {
             Navegação
           </p>
           <SidebarItem to="/" label="Todas as campanhas" active={pathname === '/'} />
+          <SidebarItem to="/gerador" label="Gerador de Campanhas" active={pathname === '/gerador'} />
         </div>
 
         <div className="mx-3.5 my-3 h-px bg-[var(--line)]" />

@@ -45,6 +45,7 @@ from ..sources.figma_api import FigmaApiSource
 from ..storage.supabase import SupabaseUploader
 from . import db
 from . import ai_extract
+from . import ai_generate
 from . import doc_text
 
 HERE = Path(__file__).resolve().parent
@@ -276,6 +277,7 @@ def health() -> dict:
         "bucket": os.environ.get("SUPABASE_BUCKET", "ad-templates"),
         "auth_enabled": AUTH_ENABLED,
         "ai_extract": ai_extract.is_configured(),
+        "ai_generate": ai_generate.is_configured(),
     }
 
 
@@ -1570,6 +1572,50 @@ async def extract_copies_file(campaign_id: int, file: UploadFile = File(...)) ->
     except RuntimeError as exc:
         return JSONResponse({"status": "error", "error": str(exc)}, status_code=400)
     return _run_extraction(campaign_id, text)
+
+
+class AiContentBlock(BaseModel):
+    type: str  # "text" | "image" | "document"
+    text: Optional[str] = None
+    source: Optional[dict] = None  # {type:"base64", media_type, data}
+    name: Optional[str] = None
+
+
+class AiGenerateRequest(BaseModel):
+    system: str
+    content: List[AiContentBlock] = []
+    max_tokens: int = 4000
+    model: Optional[str] = None
+
+
+@app.post("/api/ai/generate")
+def ai_generate_endpoint(req: AiGenerateRequest) -> JSONResponse:
+    """Proxy de geração de texto via OpenRouter para o Gerador de Campanhas.
+
+    Recebe o system prompt (já com BASE_DNA) e content blocks estilo Anthropic
+    (texto + imagem/PDF base64) e devolve {text, stop_reason}. O retry-JSON e a
+    sanitização ficam no cliente.
+    """
+    if not ai_generate.is_configured():
+        return JSONResponse(
+            {"status": "config_error", "error": "OPENROUTER_API_KEY não configurada no servidor"},
+            status_code=400,
+        )
+    if not (req.system or "").strip():
+        return JSONResponse({"status": "error", "error": "system prompt vazio"}, status_code=400)
+
+    content = [b.model_dump(exclude_none=True) for b in req.content]
+    try:
+        result = ai_generate.generate(
+            system=req.system,
+            content=content,
+            max_tokens=req.max_tokens,
+            model=req.model,
+        )
+    except RuntimeError as exc:
+        return JSONResponse({"status": "error", "error": str(exc)}, status_code=502)
+
+    return JSONResponse({"status": "ok", **result})
 
 
 class BulkCopyItem(BaseModel):

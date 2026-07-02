@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { Login } from './pages/Login'
 import { Layout } from './components/Layout'
 import { Home } from './pages/Home'
+import { GeradorPage } from './pages/GeradorPage'
 import { BoxyCampaignPage } from './pages/BoxyCampaign'
 import { MetaCallback } from './pages/MetaCallback'
 import { GoogleAdsFallback } from './pages/GoogleAdsFallback'
@@ -48,6 +49,7 @@ export default function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/gerador" element={<GeradorPage />} />
               <Route path="/campaigns/:id" element={<Navigate to="/" replace />} />
               <Route path="/boxys/:id" element={<BoxyCampaignPage />} />
               <Route path="/auth/callback/meta" element={<MetaCallback />} />
