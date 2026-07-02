@@ -14,6 +14,9 @@ import { SecaoVideos } from '../components/gerador/blocos/SecaoVideos'
 import { SecaoRedes } from '../components/gerador/blocos/SecaoRedes'
 import { SecaoLandingPage } from '../components/gerador/blocos/SecaoLandingPage'
 import { SecaoApp } from '../components/gerador/blocos/SecaoApp'
+import { SecaoTrafego } from '../components/gerador/blocos/SecaoTrafego'
+import { SecaoSintese } from '../components/gerador/blocos/SecaoSintese'
+import { DocumentoGerado } from '../components/gerador/output/DocumentoGerado'
 
 // Seções do gerador (html: 01-15). PR5+ preenche as mesas (07-15).
 const SECOES: { num: string; titulo: string; render?: () => ReactNode }[] = [
@@ -30,8 +33,8 @@ const SECOES: { num: string; titulo: string; render?: () => ReactNode }[] = [
   { num: '11', titulo: 'Bloco: Redes Sociais', render: () => <SecaoRedes /> },
   { num: '12', titulo: 'Bloco: Landing Page', render: () => <SecaoLandingPage /> },
   { num: '13', titulo: 'Bloco: App / Teaser', render: () => <SecaoApp /> },
-  { num: '14', titulo: 'Bloco: Configuração de Tráfego Pago' },
-  { num: '15', titulo: 'Bloco: Síntese das Estratégias' },
+  { num: '14', titulo: 'Bloco: Configuração de Tráfego Pago', render: () => <SecaoTrafego /> },
+  { num: '15', titulo: 'Bloco: Síntese das Estratégias', render: () => <SecaoSintese /> },
 ]
 
 export function SectionCard({ num, titulo, children }: { num: string; titulo: string; children?: ReactNode }) {
@@ -68,6 +71,11 @@ function GeradorInner() {
           {s.render ? s.render() : undefined}
         </SectionCard>
       ))}
+
+      <section className="bg-[var(--surface)] border border-[var(--line)] rounded-[var(--radius)] p-6 mb-4">
+        <h2 className="text-base font-semibold text-[var(--ink)] mb-3">Documento da campanha</h2>
+        <DocumentoGerado />
+      </section>
     </>
   )
 }

@@ -61,4 +61,7 @@ export const BLOCO_TITULOS = {
   lpParte2: 'Bloco: Landing Page — Parte 2',
   appConteudo: 'Bloco: App — Thumb, Descrição e Vídeos',
   appTeaser: 'Bloco: App — Teaser Cinematográfico',
+  trafegoPrincipal: 'Bloco: Tráfego Pago — Meta Ads + Google Ads',
+  trafegoSecundario: 'Bloco: Tráfego Pago — TikTok, LinkedIn, Pinterest e X',
+  sintese: 'Síntese das Estratégias Utilizadas',
 } as const
